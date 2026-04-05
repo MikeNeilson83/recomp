@@ -467,15 +467,188 @@ function stopScanner(){scannerActive=false;if(scannerStream){scannerStream.getTr
 document.getElementById('startCameraBtn')?.addEventListener('click',startScanner);
 document.getElementById('stopCameraBtn')?.addEventListener('click',stopScanner);
 
-// ─── AI LOOKUP ─────────────────────────────────────────────
-async function lookupFood(q){const st=document.getElementById('aiStatus'),res=document.getElementById('aiResult'),sb=document.getElementById('fAiSearch');
-  st.className='ai-status';st.innerHTML='<span class="dot">●</span> Looking up macros...';res.style.display='none';sb.disabled=true;aiData=null;
-  try{const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:`You are a nutrition database. Estimate macronutrients for this food using UK portion sizes.\n\nFood: "${q}"\n\nRespond ONLY with valid JSON:\n{"name":"<short name>","calories":<int>,"protein":<int>,"carbs":<int>,"fat":<int>,"note":"<portion note>"}`}]})});
-    const data=await r.json();const text=data.content.map(b=>b.text||'').join('').trim().replace(/```json|```/g,'').trim();const p=JSON.parse(text);aiData=p;
-    st.innerHTML='<span style="color:var(--green)">✓</span> Found it';
-    document.getElementById('aiResName').textContent=p.name;document.getElementById('aiResMacros').innerHTML=`<strong>${p.calories}</strong> kcal · P: <strong>${p.protein}g</strong> · C: <strong>${p.carbs}g</strong> · F: <strong>${p.fat}g</strong>`;document.getElementById('aiResNote').textContent=p.note||'';res.style.display='';
-  }catch(e){st.className='ai-status error';st.textContent="Couldn't look that up."} sb.disabled=false}
+// ─── OFFLINE FOOD DATABASE (per typical UK serving) ────────
+const FOOD_DB=[
+// Proteins
+{k:["chicken breast","chicken"],cal:165,p:31,c:0,f:4,s:"per 100g",w:100},
+{k:["beef","roast beef","beef joint"],cal:250,p:26,c:0,f:16,s:"per 100g",w:100},
+{k:["steak","sirloin","fillet steak"],cal:200,p:25,c:0,f:11,s:"per 100g",w:100},
+{k:["mince","beef mince","lean mince"],cal:210,p:21,c:0,f:14,s:"per 100g",w:100},
+{k:["lamb","roast lamb","lamb chop"],cal:260,p:25,c:0,f:17,s:"per 100g",w:100},
+{k:["pork","pork chop","pork loin"],cal:200,p:27,c:0,f:10,s:"per 100g",w:100},
+{k:["bacon","back bacon"],cal:120,p:12,c:0,f:8,s:"2 rashers",w:50},
+{k:["sausage","pork sausage"],cal:160,p:8,c:6,f:12,s:"1 sausage",w:57},
+{k:["salmon","salmon fillet"],cal:210,p:20,c:0,f:14,s:"1 fillet 120g",w:120},
+{k:["smoked salmon"],cal:120,p:18,c:0,f:5,s:"per 100g",w:100},
+{k:["tuna","tinned tuna","tuna steak"],cal:110,p:25,c:0,f:1,s:"1 tin drained",w:100},
+{k:["cod","white fish","haddock","fish fillet"],cal:80,p:18,c:0,f:1,s:"per 100g",w:100},
+{k:["prawn","prawns","king prawns"],cal:70,p:15,c:0,f:1,s:"per 100g",w:100},
+{k:["egg","poached egg","boiled egg","fried egg"],cal:75,p:6,c:0,f:5,s:"1 egg",w:50},
+{k:["turkey","turkey breast"],cal:150,p:30,c:0,f:3,s:"per 100g",w:100},
+{k:["tofu"],cal:76,p:8,c:2,f:4,s:"per 100g",w:100},
+// Carbs
+{k:["rice","basmati","white rice","boiled rice"],cal:130,p:3,c:28,f:0,s:"per 100g cooked",w:100},
+{k:["lemon rice"],cal:140,p:3,c:30,f:1,s:"per 100g cooked",w:100},
+{k:["brown rice"],cal:120,p:3,c:25,f:1,s:"per 100g cooked",w:100},
+{k:["mashed potato","mash"],cal:110,p:2,c:15,f:5,s:"per 100g",w:100},
+{k:["roast potato","roast potatoes","roastie"],cal:150,p:2,c:22,f:6,s:"1 medium potato",w:80},
+{k:["chips","french fries"],cal:310,p:4,c:41,f:15,s:"per 100g",w:100},
+{k:["sweet potato","baked sweet potato"],cal:90,p:2,c:20,f:0,s:"per 100g",w:100},
+{k:["pasta","spaghetti","penne"],cal:160,p:6,c:31,f:1,s:"per 100g cooked",w:100},
+{k:["bread","toast","white bread","slice of bread"],cal:95,p:3,c:18,f:1,s:"1 slice",w:38},
+{k:["wrap","tortilla"],cal:180,p:5,c:30,f:4,s:"1 wrap",w:60},
+{k:["naan","naan bread"],cal:260,p:8,c:42,f:6,s:"1 naan",w:100},
+{k:["oats","porridge","porridge oats"],cal:150,p:5,c:27,f:3,s:"40g dry",w:40},
+{k:["rice cakes","rice cake"],cal:35,p:1,c:8,f:0,s:"1 cake",w:10},
+// Veg
+{k:["broccoli","brocolli"],cal:35,p:3,c:4,f:0,s:"per 100g",w:100},
+{k:["carrot","carrots"],cal:40,p:1,c:9,f:0,s:"per 100g",w:100},
+{k:["peas","garden peas"],cal:80,p:5,c:12,f:1,s:"per 100g",w:100},
+{k:["spinach"],cal:25,p:3,c:1,f:0,s:"per 100g",w:100},
+{k:["green beans"],cal:30,p:2,c:5,f:0,s:"per 100g",w:100},
+{k:["courgette","zucchini"],cal:18,p:1,c:3,f:0,s:"per 100g",w:100},
+{k:["pepper","peppers","bell pepper"],cal:30,p:1,c:6,f:0,s:"per 100g",w:100},
+{k:["onion"],cal:40,p:1,c:9,f:0,s:"1 medium",w:100},
+{k:["mushroom","mushrooms"],cal:15,p:2,c:1,f:0,s:"per 100g",w:100},
+{k:["salad","mixed salad","side salad"],cal:20,p:1,c:3,f:0,s:"1 serving",w:80},
+{k:["avocado","avo"],cal:160,p:2,c:2,f:15,s:"half",w:75},
+{k:["sweetcorn","corn"],cal:85,p:3,c:16,f:1,s:"per 100g",w:100},
+{k:["tomato","tomatoes"],cal:20,p:1,c:3,f:0,s:"1 medium",w:100},
+// Fruit
+{k:["banana"],cal:105,p:1,c:27,f:0,s:"1 medium",w:120},
+{k:["apple"],cal:52,p:0,c:14,f:0,s:"1 medium",w:100},
+{k:["satsuma","tangerine","clementine"],cal:25,p:0,c:6,f:0,s:"1 fruit",w:50},
+{k:["blueberries","blueberry"],cal:60,p:1,c:14,f:0,s:"per 100g",w:100},
+{k:["strawberries","strawberry"],cal:33,p:1,c:7,f:0,s:"per 100g",w:100},
+{k:["orange"],cal:60,p:1,c:15,f:0,s:"1 medium",w:130},
+// Dairy & protein supps
+{k:["milk","whole milk"],cal:65,p:3,c:5,f:4,s:"per 100ml",w:100},
+{k:["semi skimmed milk"],cal:47,p:3,c:5,f:2,s:"per 100ml",w:100},
+{k:["oat milk"],cal:45,p:1,c:7,f:1,s:"per 100ml",w:100},
+{k:["greek yoghurt","greek yogurt","0% yoghurt"],cal:60,p:10,c:4,f:0,s:"per 100g",w:100},
+{k:["cheese","cheddar"],cal:115,p:7,c:0,f:9,s:"30g slice",w:30},
+{k:["protein shake","whey shake","protein powder","whey"],cal:120,p:24,c:3,f:1,s:"1 scoop + water",w:30},
+{k:["form shake","form chocolate","form choc","form performance"],cal:150,p:30,c:5,f:3,s:"1 serving",w:40},
+{k:["protein bar","barebells","barebells bar"],cal:230,p:20,c:18,f:9,s:"1 bar",w:55},
+// Fats & extras
+{k:["peanut butter","pb"],cal:95,p:4,c:3,f:8,s:"1 tbsp 15g",w:15},
+{k:["olive oil","oil"],cal:120,p:0,c:0,f:14,s:"1 tbsp",w:15},
+{k:["butter"],cal:75,p:0,c:0,f:8,s:"1 pat 10g",w:10},
+{k:["hummus"],cal:120,p:4,c:8,f:8,s:"2 tbsp",w:50},
+{k:["nuts","mixed nuts","almonds"],cal:170,p:6,c:4,f:15,s:"30g handful",w:30},
+{k:["honey"],cal:65,p:0,c:17,f:0,s:"1 tbsp",w:21},
+// Sauces & condiments
+{k:["gravy"],cal:35,p:1,c:4,f:2,s:"50ml serving",w:50},
+{k:["ketchup","tomato sauce"],cal:20,p:0,c:5,f:0,s:"1 tbsp",w:15},
+{k:["mayo","mayonnaise"],cal:100,p:0,c:0,f:11,s:"1 tbsp",w:15},
+{k:["soy sauce"],cal:10,p:1,c:1,f:0,s:"1 tbsp",w:15},
+// Drinks
+{k:["black coffee","coffee"],cal:2,p:0,c:0,f:0,s:"1 cup",w:240},
+{k:["black tea","tea"],cal:2,p:0,c:0,f:0,s:"1 cup",w:240},
+{k:["tea with milk","tea with semi skimmed"],cal:15,p:1,c:1,f:0,s:"1 cup",w:260},
+{k:["black tea with oat milk","tea with oat milk","oat milk tea"],cal:25,p:0,c:3,f:1,s:"1 cup",w:260},
+{k:["orange juice","oj"],cal:110,p:1,c:26,f:0,s:"1 glass 250ml",w:250},
+{k:["coke","coca cola","pepsi"],cal:140,p:0,c:35,f:0,s:"1 can",w:330},
+{k:["beer","lager","pint"],cal:180,p:1,c:13,f:0,s:"1 pint",w:568},
+{k:["wine","red wine","white wine"],cal:160,p:0,c:4,f:0,s:"175ml glass",w:175},
+// Takeaway / ready meals
+{k:["chicken madras","madras"],cal:450,p:30,c:12,f:30,s:"1 portion ~350g",w:350},
+{k:["chicken tikka masala","tikka masala"],cal:500,p:28,c:20,f:32,s:"1 portion ~350g",w:350},
+{k:["chicken korma","korma"],cal:520,p:25,c:22,f:35,s:"1 portion ~350g",w:350},
+{k:["chicken jalfrezi","jalfrezi"],cal:400,p:30,c:15,f:24,s:"1 portion ~350g",w:350},
+{k:["fish and chips","fish & chips"],cal:850,p:35,c:75,f:42,s:"1 portion",w:400},
+{k:["pizza","margherita pizza"],cal:800,p:30,c:90,f:30,s:"medium pizza",w:350},
+{k:["burger","cheeseburger"],cal:500,p:25,c:35,f:28,s:"1 burger",w:200},
+{k:["kebab","doner kebab"],cal:700,p:35,c:50,f:38,s:"1 kebab",w:350},
+// Pret / sandwich shops
+{k:["pret chicken avocado","pret chicken & avo","pret chicken avo salad","chicken avocado salad"],cal:380,p:32,c:12,f:22,s:"1 salad",w:300},
+{k:["sandwich","chicken sandwich"],cal:400,p:22,c:38,f:16,s:"1 sandwich",w:200},
+// Snacks
+{k:["crisps","packet of crisps","walkers"],cal:130,p:1,c:13,f:8,s:"25g bag",w:25},
+{k:["chocolate","chocolate bar","dairy milk"],cal:240,p:3,c:28,f:13,s:"45g bar",w:45},
+{k:["biscuit","digestive","biscuits"],cal:70,p:1,c:10,f:3,s:"1 biscuit",w:15},
+];
+
+// Fuzzy match: find best matching food item
+function fuzzyMatch(query){
+  query=query.toLowerCase().trim();
+  let best=null,bestScore=0;
+  for(const food of FOOD_DB){
+    for(const keyword of food.k){
+      // Exact match
+      if(query===keyword){return{...food,matchName:keyword,score:100}}
+      // Query contains keyword
+      if(query.includes(keyword)){
+        const score=keyword.length/query.length*80;
+        if(score>bestScore){bestScore=score;best={...food,matchName:keyword,score}}
+      }
+      // Keyword contains query
+      if(keyword.includes(query)){
+        const score=query.length/keyword.length*70;
+        if(score>bestScore){bestScore=score;best={...food,matchName:keyword,score}}
+      }
+      // Word overlap
+      const qWords=query.split(/[\s,&]+/);
+      const kWords=keyword.split(/[\s,&]+/);
+      const overlap=qWords.filter(w=>kWords.some(k=>k.includes(w)||w.includes(k))).length;
+      if(overlap>0){
+        const score=overlap/Math.max(qWords.length,kWords.length)*60;
+        if(score>bestScore){bestScore=score;best={...food,matchName:keyword,score}}
+      }
+    }
+  }
+  return best;
+}
+
+// Parse multi-item meal: "beef with gravy, carrots, mashed potato, 2 roast potatoes, broccoli"
+function parseMeal(query){
+  query=query.toLowerCase().replace(/\band\b/g,',');
+  // Split by comma, "with", "plus", "&"
+  const parts=query.split(/[,&]+|(?:\bwith\b)|(?:\bplus\b)/).map(s=>s.trim()).filter(Boolean);
+  const items=[];
+  let totalCal=0,totalP=0,totalC=0,totalF=0;
+
+  for(let part of parts){
+    // Check for multiplier: "2 roast potatoes", "3 eggs"
+    let mult=1;
+    const multMatch=part.match(/^(\d+)\s+/);
+    if(multMatch){mult=parseInt(multMatch[1]);part=part.replace(/^\d+\s+/,'')}
+
+    const match=fuzzyMatch(part);
+    if(match){
+      const cal=Math.round(match.cal*mult);
+      const p=Math.round(match.p*mult);
+      const c=Math.round(match.c*mult);
+      const f=Math.round(match.f*mult);
+      items.push({name:match.matchName,mult,cal,p,c,f});
+      totalCal+=cal;totalP+=p;totalC+=c;totalF+=f;
+    }
+  }
+
+  return items.length>0?{items,cal:totalCal,p:totalP,c:totalC,f:totalF}:null;
+}
+
+function lookupFood(q){
+  const st=document.getElementById('aiStatus'),res=document.getElementById('aiResult'),sb=document.getElementById('fAiSearch');
+  st.className='ai-status';st.textContent='Looking up...';res.style.display='none';aiData=null;
+
+  const result=parseMeal(q);
+  if(!result){
+    st.className='ai-status error';
+    st.textContent="Couldn't match that. Try simpler terms or use manual entry.";
+    return;
+  }
+
+  const name=result.items.map(i=>(i.mult>1?i.mult+'× ':'')+i.name).join(' + ');
+  const breakdown=result.items.map(i=>`${i.mult>1?i.mult+'× ':''}${i.name}: ${i.cal}kcal`).join(' · ');
+
+  aiData={name,calories:result.cal,protein:result.p,carbs:result.c,fat:result.f,note:breakdown};
+  st.innerHTML='<span style="color:var(--green)">✓</span> Found '+result.items.length+' item'+(result.items.length>1?'s':'');
+  document.getElementById('aiResName').textContent=name;
+  document.getElementById('aiResMacros').innerHTML=`<strong>${result.cal}</strong> kcal · P: <strong>${result.p}g</strong> · C: <strong>${result.c}g</strong> · F: <strong>${result.f}g</strong>`;
+  document.getElementById('aiResNote').textContent=breakdown;
+  res.style.display='';
+}
 
 // ─── RENDER ────────────────────────────────────────────────
 const getTotals=()=>meals.reduce((a,m)=>({cal:a.cal+m.cal,p:a.p+m.p,c:a.c+m.c,f:a.f+m.f}),{cal:0,p:0,c:0,f:0});
