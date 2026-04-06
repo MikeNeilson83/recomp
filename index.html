@@ -196,6 +196,31 @@ body{font-family:var(--body);background:var(--bg);color:var(--text);-webkit-font
 .date-nav-btn:active{color:var(--accent)}
 .date-nav-btn:disabled{opacity:0.2;cursor:default}
 .past-day-bar{margin:0 16px 6px;padding:6px 12px;background:rgba(77,166,255,0.08);border:1px solid rgba(77,166,255,0.2);border-radius:6px;font-family:var(--mono);font-size:9px;color:var(--blue);letter-spacing:0.8px;text-align:center}
+/* Streak */
+.streak-card{margin:8px 16px 2px;padding:12px 16px;background:linear-gradient(135deg,#1a1f08,#141414);border:1px solid rgba(196,244,65,0.2);border-radius:10px;display:flex;align-items:center;gap:14px}
+.streak-num{font-family:var(--display);font-size:38px;font-weight:800;color:var(--accent);line-height:1}
+.streak-info{flex:1}
+.streak-label{font-size:13px;font-weight:700;color:var(--text)}
+.streak-sub{font-size:10px;color:var(--dim);margin-top:2px}
+.streak-zero{margin:8px 16px 2px;padding:12px 16px;background:var(--s2);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--dim);text-align:center}
+.streak-badge{font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:0}
+/* Weekly summary */
+.week-card{background:var(--s2);border:1px solid var(--border);border-radius:10px;margin:10px 16px;padding:14px 16px;position:relative;overflow:hidden}
+.week-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--cyan),var(--blue))}
+/* Milestones */
+.milestones-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 16px 10px}
+.milestone{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;transition:all 0.2s}
+.milestone.earned{border-color:rgba(196,244,65,0.3);background:linear-gradient(135deg,#0f1408,#141414)}
+.milestone.locked{opacity:0.35}
+.milestone-emoji{font-size:22px;margin-bottom:4px;display:block}
+.milestone-name{font-size:11px;font-weight:700;margin-bottom:2px;line-height:1.3}
+.milestone-desc{font-size:9px;color:var(--dim);margin-top:2px;line-height:1.4}
+.milestone-date{font-family:var(--mono);font-size:8px;color:var(--accent);margin-top:4px}
+/* Copy yesterday btn */
+.btn-subtle{background:var(--s3);color:var(--dim);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:10px;font-weight:600;font-family:var(--body);cursor:pointer;transition:all 0.15s}
+.btn-subtle:active{color:var(--accent);border-color:var(--accent)}
+/* Toast */
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:9px 18px;border-radius:20px;font-size:12px;z-index:300;opacity:0;transition:opacity 0.25s,transform 0.25s;pointer-events:none;white-space:nowrap}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 </style>
@@ -212,6 +237,7 @@ body{font-family:var(--body);background:var(--bg);color:var(--text);-webkit-font
 
     <!-- NUTRITION -->
     <div id="tab-nutrition" class="tab-panel active">
+      <div id="streakCard"></div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
           <span id="calTotal" style="font-size:26px;font-weight:800;font-family:var(--display)">0</span>
@@ -256,7 +282,7 @@ body{font-family:var(--body);background:var(--bg);color:var(--text);-webkit-font
       </div>
       <div class="section-head"><span class="section-title">Quick Add</span></div>
       <div class="presets" id="presets"></div>
-      <div class="section-head"><span class="section-title">Today's Food</span><button class="btn" id="btnAddMeal">+ Add</button></div>
+      <div class="section-head"><span class="section-title">Today's Food</span><div style="display:flex;gap:6px"><button class="btn-subtle" id="btnCopyYesterday">📋 Copy yesterday</button><button class="btn" id="btnAddMeal">+ Add</button></div></div>
       <div id="mealsList" style="padding:0 16px"></div>
       <div id="mealsEmpty" class="empty"><div class="emoji">🍽️</div><div>No meals logged yet</div><div class="sub">Use Quick Add or tap + Add</div></div>
       <div class="tip"><strong>Protein priority:</strong> 155g = ~4 palm-sized portions of meat/fish, or 3 + a shake.</div>
@@ -286,6 +312,7 @@ body{font-family:var(--body);background:var(--bg);color:var(--text);-webkit-font
     <!-- PROGRESS -->
     <div id="tab-progress" class="tab-panel">
       <div class="score-card" id="scoreCard"></div>
+      <div class="week-card" id="weekCard"></div>
       <div class="pred-card" id="predCard"></div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -296,6 +323,8 @@ body{font-family:var(--body);background:var(--bg);color:var(--text);-webkit-font
         <div id="weightEmpty" class="empty"><div class="emoji">⚖️</div><div>No weigh-ins yet</div></div>
       </div>
       <div class="tip"><strong>Target: 11.4 stone.</strong> ~1 lb/week. Stall 2+ weeks → drop 100 kcal.</div>
+      <div class="section-head"><span class="section-title">Achievements</span></div>
+      <div class="milestones-grid" id="milestonesGrid"></div>
       <div class="card"><div style="font-size:13px;font-weight:700;margin-bottom:4px">📸 Progress Photos</div><div style="font-size:11px;color:var(--dim);line-height:1.5">Every Sunday: front, side, back. Same lighting, same time, same pose.</div></div>
     </div>
   </div>
@@ -366,6 +395,7 @@ body{font-family:var(--body);background:var(--bg);color:var(--text);-webkit-font
   <div class="form-sheet"><div class="form-handle"></div><div style="font-size:16px;font-weight:700;margin-bottom:12px">Log Weight</div><div style="margin-bottom:12px"><label class="label">Weight (stone)</label><input class="input" id="fWeight" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 12.4"></div><div style="display:flex;gap:8px"><button class="btn" style="flex:1" id="fWeightCancel">Cancel</button><button class="btn btn-primary" style="flex:2" id="fWeightSave">Save</button></div></div>
 </div>
 
+<div id="toast"></div>
 <script>
 // ── CONFIG ────────────────────────────────────────────────
 const TARGETS={cal:1800,p:155,c:155,f:62},CIRC=2*Math.PI*28;
@@ -695,7 +725,7 @@ function calcScore(){
 
 // ── RENDER ────────────────────────────────────────────────
 const getTotals=()=>meals.reduce((a,m)=>({cal:a.cal+m.cal,p:a.p+m.p,c:a.c+m.c,f:a.f+m.f}),{cal:0,p:0,c:0,f:0});
-const rerender=()=>{renderNutrition();renderSteps();renderWater();renderScoreCard();renderPrediction()};
+const rerender=()=>{renderNutrition();renderSteps();renderWater();renderScoreCard();renderPrediction();renderStreak();renderWeeklySummary();renderMilestones()};
 
 function renderSteps(){
   const pct=Math.min(todaySteps/STEP_TARGET*100,100),remaining=Math.max(0,STEP_TARGET-todaySteps);
@@ -924,13 +954,147 @@ function renderPrediction(){
     </div>`;
 }
 
+// ── STREAK ────────────────────────────────────────────────
+function calcStreak(){
+  let streak=0;const d=new Date(realToday+'T12:00:00');
+  while(true){
+    const dk=d.toISOString().slice(0,10);
+    if(dk<START_DATE||!load(`completed:${dk}`,false))break;
+    streak++;d.setDate(d.getDate()-1);
+  }
+  return streak;
+}
+function renderStreak(){
+  const el=document.getElementById('streakCard');if(!el)return;
+  const streak=calcStreak();
+  if(streak===0){
+    el.className='streak-zero';
+    el.innerHTML='🔥 Complete today to start your streak!';
+    return;
+  }
+  el.className='streak-card';
+  const msg=streak>=14?'Unstoppable.':streak>=7?'On fire! Keep going.':streak>=3?'Building momentum.':'Great start!';
+  el.innerHTML=`<div class="streak-num">${streak}</div><div class="streak-info"><div class="streak-label">Day Streak 🔥</div><div class="streak-sub">${msg}</div></div>`;
+}
+
+// ── WEEKLY SUMMARY ─────────────────────────────────────────
+function getWeekDates(){
+  const d=new Date(realToday+'T12:00:00'),day=d.getDay();
+  const mon=new Date(d);mon.setDate(d.getDate()-(day===0?6:day-1));
+  const dates=[];
+  for(let i=0;i<7;i++){const x=new Date(mon);x.setDate(mon.getDate()+i);dates.push(x.toISOString().slice(0,10));}
+  return dates;
+}
+function renderWeeklySummary(){
+  const el=document.getElementById('weekCard');if(!el)return;
+  const dates=getWeekDates(),labels=['M','T','W','T','F','S','S'];
+  let totalCals=0,totalSteps=0,completedCount=0,loggedDays=0,stepDays=0;
+  const dayData=dates.map((dk,i)=>{
+    const done=load(`completed:${dk}`,false);
+    const m=load(`meals:${dk}`,[]);
+    const cals=m.reduce((a,x)=>a+x.cal,0);
+    const steps=load(`steps:${dk}`,0);
+    if(done)completedCount++;
+    if(m.length){loggedDays++;totalCals+=cals;}
+    if(steps>0){stepDays++;totalSteps+=steps;}
+    return{dk,done,cals,steps,isFuture:dk>realToday,label:labels[i]};
+  });
+  const avgCals=loggedDays?Math.round(totalCals/loggedDays):0;
+  const avgSteps=stepDays?Math.round(totalSteps/stepDays):0;
+  const dots=dayData.map(d=>{
+    const bg=d.isFuture?'var(--border2)':d.done?'var(--accent)':d.dk===realToday?'rgba(196,244,65,0.2)':'var(--s4)';
+    const inner=d.done?`<span style="color:var(--bg);font-size:11px;font-weight:900">✓</span>`:d.isFuture?'':'';
+    return`<div style="text-align:center"><div style="width:30px;height:30px;border-radius:50%;background:${bg};margin:0 auto 4px;display:flex;align-items:center;justify-content:center;border:${d.dk===realToday&&!d.done?'1px solid var(--accent)':'none'}">${inner}</div><div style="font-family:var(--mono);font-size:8px;color:var(--dim)">${d.label}</div></div>`;
+  }).join('');
+  el.innerHTML=`<div style="font-family:var(--mono);font-size:9px;color:var(--cyan);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">This Week</div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:12px">${dots}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+      <div style="background:var(--s3);border-radius:6px;padding:8px;text-align:center"><div style="font-family:var(--mono);font-size:7px;color:var(--dim);letter-spacing:1px;text-transform:uppercase">Days Done</div><div style="font-family:var(--display);font-size:18px;font-weight:800;margin-top:2px;color:var(--accent)">${completedCount}<span style="font-size:10px;color:var(--dim)"> /7</span></div></div>
+      <div style="background:var(--s3);border-radius:6px;padding:8px;text-align:center"><div style="font-family:var(--mono);font-size:7px;color:var(--dim);letter-spacing:1px;text-transform:uppercase">Avg Cals</div><div style="font-family:var(--display);font-size:18px;font-weight:800;margin-top:2px">${avgCals||'—'}</div></div>
+      <div style="background:var(--s3);border-radius:6px;padding:8px;text-align:center"><div style="font-family:var(--mono);font-size:7px;color:var(--dim);letter-spacing:1px;text-transform:uppercase">Avg Steps</div><div style="font-family:var(--display);font-size:18px;font-weight:800;margin-top:2px">${avgSteps?avgSteps.toLocaleString():'—'}</div></div>
+    </div>`;
+}
+
+// ── MILESTONES ─────────────────────────────────────────────
+const MILESTONE_DEFS=[
+  {id:'first_day',emoji:'🌱',name:'First Step',desc:'Complete your first day'},
+  {id:'streak_3',emoji:'🔥',name:'On Fire',desc:'3-day streak'},
+  {id:'streak_7',emoji:'⚡',name:'7-Day Warrior',desc:'7-day streak'},
+  {id:'streak_14',emoji:'💎',name:'Two-Week Legend',desc:'14-day streak'},
+  {id:'protein_7',emoji:'🥩',name:'Protein King',desc:'Hit 155g protein 7 days'},
+  {id:'steps_7',emoji:'👟',name:'Step Master',desc:'Hit 7,000 steps 7 days'},
+  {id:'workout_5',emoji:'💪',name:'Gym Rat',desc:'Complete 5 full workouts'},
+  {id:'workout_10',emoji:'🏆',name:'Iron Will',desc:'Complete 10 full workouts'},
+  {id:'water_7',emoji:'💧',name:'Hydration Hero',desc:'Hit water target 7 days'},
+  {id:'weight_logged',emoji:'⚖️',name:'Accountable',desc:'Log your weight once'},
+  {id:'first_lb',emoji:'🎉',name:'First Pound',desc:'Lose your first pound'},
+];
+function checkMilestones(){
+  const earned=load('milestones',{});
+  const allDays=[];
+  const s=new Date(START_DATE),now=new Date(realToday);
+  for(let d=new Date(s);d<=now;d.setDate(d.getDate()+1))allDays.push(d.toISOString().slice(0,10));
+  let completedCount=0,proteinDays=0,stepDays=0,workoutsDone=0,waterDays=0;
+  allDays.forEach(d=>{
+    if(load(`completed:${d}`,false))completedCount++;
+    const m=load(`meals:${d}`,[]);
+    if(m.reduce((a,x)=>a+(x.p||0),0)>=TARGETS.p)proteinDays++;
+    if(load(`steps:${d}`,0)>=STEP_TARGET)stepDays++;
+    if(load(`water:${d}`,0)>=WATER_TARGET)waterDays++;
+    const di=new Date(d).getDay(),dk2=DAYS[di===0?6:di-1];
+    const wChoice=load(`workoutChoice:${d}`,'today'),wDay=wChoice==='today'?dk2:wChoice;
+    const w=WORKOUTS[wDay];
+    if(w.exercises.length){const c=load(`workouts:${d}`,{});if(w.exercises.filter((_,i)=>c[`${wDay}-${i}`]).length===w.exercises.length)workoutsDone++;}
+  });
+  const streak=calcStreak();
+  const lostLbs=(START_WEIGHT-(weights.length?weights[weights.length-1].value:START_WEIGHT))*14;
+  const today=realToday;
+  const mark=(id,cond)=>{if(cond&&!earned[id])earned[id]=today;};
+  mark('first_day',completedCount>=1);mark('streak_3',streak>=3);mark('streak_7',streak>=7);mark('streak_14',streak>=14);
+  mark('protein_7',proteinDays>=7);mark('steps_7',stepDays>=7);mark('workout_5',workoutsDone>=5);mark('workout_10',workoutsDone>=10);
+  mark('water_7',waterDays>=7);mark('weight_logged',weights.length>0);mark('first_lb',lostLbs>=1);
+  save('milestones',earned);return earned;
+}
+function renderMilestones(){
+  const el=document.getElementById('milestonesGrid');if(!el)return;
+  const earned=checkMilestones();
+  const sorted=[...MILESTONE_DEFS.filter(m=>earned[m.id]),...MILESTONE_DEFS.filter(m=>!earned[m.id])];
+  el.innerHTML=sorted.map(m=>{
+    const isEarned=!!earned[m.id];
+    return`<div class="milestone ${isEarned?'earned':'locked'}">
+      <span class="milestone-emoji">${m.emoji}</span>
+      <div class="milestone-name">${m.name}</div>
+      <div class="milestone-desc">${m.desc}</div>
+      ${isEarned?`<div class="milestone-date">${earned[m.id]}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ── TOAST & COPY YESTERDAY ─────────────────────────────────
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.opacity='1';t.style.transform='translateX(-50%) translateY(0)';
+  clearTimeout(t._tid);
+  t._tid=setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(-50%) translateY(8px)';},2500);
+}
+function copyYesterday(){
+  const prev=new Date(viewDate+'T12:00:00');prev.setDate(prev.getDate()-1);
+  const yk=prev.toISOString().slice(0,10);
+  if(yk<START_DATE){showToast('No previous day available');return;}
+  const yMeals=load(`meals:${yk}`,[]);
+  if(!yMeals.length){showToast('No meals logged yesterday');return;}
+  yMeals.forEach(m=>meals.push({...m,id:Date.now()+Math.random()}));
+  save(`meals:${viewDate}`,meals);rerender();
+  showToast(`✓ Copied ${yMeals.length} meal${yMeals.length>1?'s':''} from yesterday`);
+}
+
 // ── EVENTS ────────────────────────────────────────────────
 document.querySelectorAll('.tab-btn').forEach(b=>{b.addEventListener('click',()=>{
   document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
   b.classList.add('active');document.getElementById('tab-'+b.dataset.tab).classList.add('active');
   document.querySelector('.tab-content').scrollTop=0;
-  if(b.dataset.tab==='progress'){renderScoreCard();renderPrediction();}
+  if(b.dataset.tab==='progress'){renderScoreCard();renderPrediction();renderWeeklySummary();renderMilestones();}
 })});
 
 document.querySelectorAll('.method-tab').forEach(b=>{b.addEventListener('click',()=>{
@@ -952,6 +1116,7 @@ const openMealForm=()=>{
 };
 const closeMealForm=()=>{mealOv.style.display='none';stopScanner();};
 document.getElementById('btnAddMeal').addEventListener('click',openMealForm);
+document.getElementById('btnCopyYesterday').addEventListener('click',copyYesterday);
 document.getElementById('fMealCancel').addEventListener('click',closeMealForm);
 mealOv.addEventListener('click',e=>{if(e.target===mealOv)closeMealForm();});
 
@@ -1024,6 +1189,7 @@ function loadViewDate(){
   rerender();
   renderTraining();
   renderProgress();
+  renderStreak();renderWeeklySummary();renderMilestones();
 }
 function changeDate(delta){
   const d=new Date(viewDate+'T12:00:00');
@@ -1042,6 +1208,7 @@ updateHeaderDate();
 buildWorkoutPicker();
 renderPresets();rerender();
 renderTraining();renderProgress();
+renderStreak();renderWeeklySummary();renderMilestones();
 </script>
 </body>
 </html>
