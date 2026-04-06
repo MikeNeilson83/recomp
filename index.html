@@ -284,14 +284,14 @@ body{font-family:var(--body);background:var(--bg);color:var(--text);-webkit-font
       <div class="pred-card" id="predCard"></div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <div><div style="font-size:15px;font-weight:700">Weight Log</div><div style="font-size:10px;color:var(--dim)">Morning weigh-in</div></div>
+          <div><div style="font-size:15px;font-weight:700">Weight Log</div><div style="font-size:10px;color:var(--dim)">Weekly weigh-in — same day, same time, after bathroom</div></div>
           <button class="btn" id="btnAddWeight">+ Log</button>
         </div>
         <div id="weightChart"></div><div id="weightStats"></div>
         <div id="weightEmpty" class="empty"><div class="emoji">⚖️</div><div>No weigh-ins yet</div></div>
       </div>
       <div class="tip"><strong>Target: 11.4 stone.</strong> ~1 lb/week. Stall 2+ weeks → drop 100 kcal.</div>
-      <div class="card"><div style="font-size:13px;font-weight:700;margin-bottom:4px">📸 Progress Photos</div><div style="font-size:11px;color:var(--dim);line-height:1.5">Front, side, back every 2 weeks. Same lighting, same time of day.</div></div>
+      <div class="card"><div style="font-size:13px;font-weight:700;margin-bottom:4px">📸 Progress Photos</div><div style="font-size:11px;color:var(--dim);line-height:1.5">Every Sunday: front, side, back. Same lighting, same time, same pose.</div></div>
     </div>
   </div>
 
@@ -676,10 +676,11 @@ function lookupFood(q){
 function calcScore(){
   const t=getTotals(),wd=getWD(),w=WORKOUTS[wd],hasEx=w.exercises.length>0;
   const doneC=hasEx?w.exercises.filter((_,i)=>completedEx[`${wd}-${i}`]).length:0;
-  const calDiff=Math.abs(t.cal-TARGETS.cal);
-  const calS=t.cal===0?0:Math.max(0,100-calDiff*0.5);
+  const doneAb=hasEx?AB_FINISHER.filter((_,i)=>completedEx[`${wd}-ab-${i}`]).length:0;
+  const totalEx=hasEx?w.exercises.length+AB_FINISHER.length:0;
+  const calS=t.cal>TARGETS.cal?Math.max(0,100-(t.cal-TARGETS.cal)*0.5):100;
   const proS=Math.min(100,t.p/TARGETS.p*100);
-  const trainS=hasEx?(doneC/w.exercises.length*100):100;
+  const trainS=hasEx?((doneC+doneAb)/totalEx*100):100;
   const stepS=Math.min(100,todaySteps/STEP_TARGET*100);
   const waterS=Math.min(100,todayWater/WATER_TARGET*100);
   return Math.round(calS*0.25+proS*0.20+trainS*0.20+stepS*0.15+waterS*0.20);
@@ -730,13 +731,15 @@ function renderCompleteDay(){
   if(dayCompleted){
     const t=getTotals(),wd=getWD(),w=WORKOUTS[wd],hasEx=w.exercises.length>0;
     const doneC=hasEx?w.exercises.filter((_,i)=>completedEx[`${wd}-${i}`]).length:0;
+    const doneAb=hasEx?AB_FINISHER.filter((_,i)=>completedEx[`${wd}-ab-${i}`]).length:0;
+    const totalEx=hasEx?w.exercises.length+AB_FINISHER.length:0;
     banner.style.display='';
     document.getElementById('completedStats').innerHTML=
       `<div class="cs-item"><div class="cs-label">Calories</div><div class="cs-val">${t.cal}<span style="font-size:10px;color:var(--dim)"> kcal</span></div></div>`+
       `<div class="cs-item"><div class="cs-label">Protein</div><div class="cs-val">${t.p}<span style="font-size:10px;color:var(--dim)">g</span></div></div>`+
       `<div class="cs-item"><div class="cs-label">Water</div><div class="cs-val">${todayWater}<span style="font-size:10px;color:var(--dim)">ml</span></div></div>`+
       `<div class="cs-item"><div class="cs-label">Steps</div><div class="cs-val">${todaySteps.toLocaleString()}</div></div>`+
-      `<div class="cs-item"><div class="cs-label">Workout</div><div class="cs-val" style="font-size:12px">${hasEx?doneC+'/'+w.exercises.length:'Rest ✓'}</div></div>`+
+      `<div class="cs-item"><div class="cs-label">Workout</div><div class="cs-val" style="font-size:12px">${hasEx?(doneC+doneAb)+'/'+totalEx:'Rest ✓'}</div></div>`+
       `<div class="cs-item"><div class="cs-label">Score</div><div class="cs-val" style="color:var(--accent)">${calcScore()}</div></div>`;
     btn.textContent='Day Completed ✓';btn.style.opacity='0.45';btn.style.cursor='default';
   }else{
@@ -842,13 +845,18 @@ function renderScoreCard(){
   const r=34,circ=2*Math.PI*r,offset=circ*(1-overall/100);
   const t=getTotals(),wd=getWD(),w=WORKOUTS[wd],hasEx=w.exercises.length>0;
   const doneC=hasEx?w.exercises.filter((_,i)=>completedEx[`${wd}-${i}`]).length:0;
-  const calDiff=Math.abs(t.cal-TARGETS.cal);
+  const doneAb=hasEx?AB_FINISHER.filter((_,i)=>completedEx[`${wd}-ab-${i}`]).length:0;
+  const totalEx=hasEx?w.exercises.length+AB_FINISHER.length:0;
   const cls=s=>s>=70?'good':s>=40?'warn':'bad';
   const proS=Math.round(Math.min(100,t.p/TARGETS.p*100));
   const stepS=Math.round(Math.min(100,todaySteps/STEP_TARGET*100));
   const waterS=Math.round(Math.min(100,todayWater/WATER_TARGET*100));
-  const trainS=hasEx?Math.round(doneC/w.exercises.length*100):100;
-  const calS=Math.round(t.cal===0?0:Math.max(0,100-calDiff*0.5));
+  const trainS=hasEx?Math.round((doneC+doneAb)/totalEx*100):100;
+  // Calorie: full marks if at/under target; only penalise if over
+  const calOver=Math.max(0,t.cal-TARGETS.cal);
+  const calS=Math.round(Math.max(0,100-calOver*0.5));
+  const calLabel=t.cal===0?'—':t.cal>TARGETS.cal+100?'Off track':t.cal>=TARGETS.cal-100?'On target':'On pace';
+  const calCls=t.cal===0?'warn':t.cal>TARGETS.cal+100?'bad':t.cal>=TARGETS.cal-100?'good':'warn';
   document.getElementById('scoreCard').innerHTML=`
     <div style="font-size:13px;font-weight:700;margin-bottom:10px">Today's Score</div>
     <div class="score-ring-wrap">
@@ -859,9 +867,9 @@ function renderScoreCard(){
         <text x="40" y="50" text-anchor="middle" fill="var(--dim)" font-size="8" font-family="var(--mono)">/ 100</text>
       </svg>
       <div class="score-details">
-        <div class="score-row"><span class="sr-label">Calories 25%</span><span class="sr-val ${cls(calS)}">${t.cal===0?'—':calDiff<=100?'On target':calDiff<=300?'Close':'Off track'}</span></div>
+        <div class="score-row"><span class="sr-label">Calories 25%</span><span class="sr-val ${calCls}">${calLabel}</span></div>
         <div class="score-row"><span class="sr-label">Protein 20%</span><span class="sr-val ${cls(proS)}">${t.p}g / ${TARGETS.p}g</span></div>
-        <div class="score-row"><span class="sr-label">Training 20%</span><span class="sr-val ${cls(trainS)}">${hasEx?doneC+'/'+w.exercises.length+' done':'Rest day ✓'}</span></div>
+        <div class="score-row"><span class="sr-label">Training 20%</span><span class="sr-val ${cls(trainS)}">${hasEx?(doneC+doneAb)+'/'+totalEx+' done':'Rest day ✓'}</span></div>
         <div class="score-row"><span class="sr-label">Steps 15%</span><span class="sr-val ${cls(stepS)}">${todaySteps.toLocaleString()} / 7,000</span></div>
         <div class="score-row"><span class="sr-label">Water 20%</span><span class="sr-val ${cls(waterS)}">${todayWater}ml / 2,500ml</span></div>
       </div>
@@ -887,7 +895,12 @@ function renderPrediction(){
   });
   const avgSteps=stepDays>0?Math.round(totalSteps/stepDays):0;
   const avgCals=daysOn?totalCals/daysOn:TARGETS.cal;
-  const deficit=2150-avgCals,wkLbs=deficit*7/3500,wkSt=wkLbs/14;
+  // Food deficit: how much under 2,150 maintenance they're eating on logged days
+  // Walking bonus: +150 kcal/day if averaging 7,000+ steps
+  // Cap total deficit at 750 kcal/day to stay realistic
+  const stepBonus=avgSteps>=STEP_TARGET?150:0;
+  const dailyDeficit=Math.min(750,Math.max(0,2150-avgCals)+stepBonus);
+  const wkLbs=dailyDeficit*7/3500,wkSt=wkLbs/14;
   const lostSoFar=START_WEIGHT-currentW,totalToLose=START_WEIGHT-TARGET_WEIGHT;
   const pct=Math.min(100,Math.max(0,lostSoFar/totalToLose*100));
   const weeksToGo=wkSt>0?(currentW-TARGET_WEIGHT)/wkSt:99;
