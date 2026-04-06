@@ -192,14 +192,19 @@ body{font-family:var(--body);background:var(--bg);color:var(--text);-webkit-font
 .install-banner .ib-close{background:none;border:none;color:var(--dim3);font-size:16px;cursor:pointer;padding:4px}
 .tab-panel{display:none}
 .tab-panel.active{display:block}
+.date-nav-btn{background:none;border:none;color:var(--dim3);cursor:pointer;padding:3px 5px;font-size:11px;line-height:1;transition:color 0.15s}
+.date-nav-btn:active{color:var(--accent)}
+.date-nav-btn:disabled{opacity:0.2;cursor:default}
+.past-day-bar{margin:0 16px 6px;padding:6px 12px;background:rgba(77,166,255,0.08);border:1px solid rgba(77,166,255,0.2);border-radius:6px;font-family:var(--mono);font-size:9px;color:var(--blue);letter-spacing:0.8px;text-align:center}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 </style>
 </head>
 <body>
 <div id="app">
-  <div class="header"><div class="logo">RECOMP<span>.</span></div><div class="date" id="headerDate"></div></div>
+  <div class="header"><div class="logo">RECOMP<span>.</span></div><div style="display:flex;align-items:center;gap:2px"><button id="datePrev" class="date-nav-btn">◀</button><div class="date" id="headerDate"></div><button id="dateNext" class="date-nav-btn">▶</button></div></div>
   <div class="tab-content">
+    <div id="pastDayBar" class="past-day-bar" style="display:none">VIEWING PAST DAY — edits save to this date</div>
     <div id="installBanner" class="install-banner" style="display:none">
       <div class="ib-text"><strong>Install RECOMP as an app:</strong><br>Chrome: tap ⋮ → "Add to Home Screen". iPhone: tap Share → "Add to Home Screen".</div>
       <button class="ib-close" id="installDismiss">✕</button>
@@ -464,14 +469,16 @@ const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){consol
 const esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML};
 
 // ── STATE ─────────────────────────────────────────────────
-const dk=dateKey();
-let meals=load(`meals:${dk}`,[]),weights=load('weights',[]),completedEx=load(`workouts:${dk}`,{});
+const realToday=dateKey();
+let viewDate=realToday;
+const viewDayKey=()=>{const d=new Date(viewDate+'T12:00:00');return DAYS[d.getDay()===0?6:d.getDay()-1]};
+let meals=load(`meals:${viewDate}`,[]),weights=load('weights',[]),completedEx=load(`workouts:${viewDate}`,{});
 let expandedEx={},aiData=null,bcPer100=null,scannerStream=null,scannerActive=false;
-let todaySteps=load(`steps:${dk}`,0);
-let todayWater=load(`water:${dk}`,0);
-let dayCompleted=load(`completed:${dk}`,false);
-let selectedWorkoutKey=load(`workoutChoice:${dk}`,'today');
-const getWD=()=>selectedWorkoutKey==='today'?todayKey():selectedWorkoutKey;
+let todaySteps=load(`steps:${viewDate}`,0);
+let todayWater=load(`water:${viewDate}`,0);
+let dayCompleted=load(`completed:${viewDate}`,false);
+let selectedWorkoutKey=load(`workoutChoice:${viewDate}`,'today');
+const getWD=()=>selectedWorkoutKey==='today'?viewDayKey():selectedWorkoutKey;
 
 // ── HTTPS / CAMERA ────────────────────────────────────────
 const isHTTPS=location.protocol==='https:'||location.hostname==='localhost';
@@ -486,12 +493,12 @@ document.getElementById('installDismiss').addEventListener('click',()=>{
 
 // ── WORKOUT PICKER ────────────────────────────────────────
 function buildWorkoutPicker(){
-  const sel=document.getElementById('workoutPicker'),tk=todayKey();
-  sel.innerHTML=`<option value="today">Today's workout (${DAY_LABELS[tk]} — ${WORKOUT_NAMES[tk]})</option>`+
+  const sel=document.getElementById('workoutPicker'),vk=viewDayKey();
+  sel.innerHTML=`<option value="today">${viewDate===realToday?"Today's workout":"This day's workout"} (${DAY_LABELS[vk]} — ${WORKOUT_NAMES[vk]})</option>`+
     DAYS.map(d=>`<option value="${d}"${d===selectedWorkoutKey?' selected':''}>${DAY_LABELS[d]} — ${WORKOUT_NAMES[d]}</option>`).join('');
   if(selectedWorkoutKey==='today')sel.value='today';
   sel.addEventListener('change',()=>{
-    selectedWorkoutKey=sel.value;save(`workoutChoice:${dk}`,selectedWorkoutKey);
+    selectedWorkoutKey=sel.value;save(`workoutChoice:${viewDate}`,selectedWorkoutKey);
     renderTraining();renderScoreCard();
   });
 }
@@ -722,7 +729,7 @@ function renderNutrition(){
   const listEl=document.getElementById('mealsList'),emptyEl=document.getElementById('mealsEmpty');
   if(!meals.length){listEl.innerHTML='';emptyEl.style.display='';}
   else{emptyEl.style.display='none';listEl.innerHTML=meals.map((m,i)=>`<div class="meal-row"><div><div class="meal-name">${esc(m.name)}</div><div class="meal-macros">${m.cal}kcal · P:${m.p}g · C:${m.c}g · F:${m.f}g</div></div><button class="meal-del" data-idx="${i}">×</button></div>`).join('');
-    listEl.querySelectorAll('.meal-del').forEach(b=>{b.addEventListener('click',()=>{meals.splice(+b.dataset.idx,1);save(`meals:${dk}`,meals);rerender()})});}
+    listEl.querySelectorAll('.meal-del').forEach(b=>{b.addEventListener('click',()=>{meals.splice(+b.dataset.idx,1);save(`meals:${viewDate}`,meals);rerender()})});}
   renderCompleteDay();
 }
 
@@ -752,7 +759,7 @@ function renderPresets(){
   el.innerHTML=PRESETS.map((p,i)=>`<button class="preset-btn" data-idx="${i}">${p.name}</button>`).join('');
   el.querySelectorAll('.preset-btn').forEach(b=>{b.addEventListener('click',()=>{
     const p=PRESETS[+b.dataset.idx];meals.push({id:Date.now(),name:p.name,cal:p.cal,p:p.p,c:p.c,f:p.f});
-    save(`meals:${dk}`,meals);rerender();
+    save(`meals:${viewDate}`,meals);rerender();
     b.style.background='var(--accent-dim)';b.style.borderColor='var(--accent)';b.style.color='var(--accent)';
     setTimeout(()=>{b.style.background='';b.style.borderColor='';b.style.color=''},400);
   })});
@@ -821,7 +828,7 @@ function renderTraining(){
     h.addEventListener('click',e=>{
       if(e.target.closest('[data-check]')){
         const k=e.target.closest('[data-check]').dataset.check;
-        completedEx[k]=!completedEx[k];save(`workouts:${dk}`,completedEx);
+        completedEx[k]=!completedEx[k];save(`workouts:${viewDate}`,completedEx);
         renderTraining();renderScoreCard();renderPrediction();return;
       }
       const k=h.dataset.expand;expandedEx[k]=!expandedEx[k];renderTraining();
@@ -881,7 +888,7 @@ function renderPrediction(){
   const el=document.getElementById('predCard');
   const currentW=weights.length?weights[weights.length-1].value:START_WEIGHT;
   const allDays=[];
-  const s=new Date(START_DATE),now=new Date(dk);
+  const s=new Date(START_DATE),now=new Date(realToday);
   for(let d=new Date(s);d<=now;d.setDate(d.getDate()+1))allDays.push(d.toISOString().slice(0,10));
   let daysOn=0,totalCals=0,completedDays=0,workoutsDone=0,totalSteps=0,stepDays=0;
   allDays.forEach(d=>{
@@ -950,19 +957,19 @@ mealOv.addEventListener('click',e=>{if(e.target===mealOv)closeMealForm();});
 
 document.getElementById('fAiSearch').addEventListener('click',()=>{const q=document.getElementById('fAiFood').value.trim();if(q)lookupFood(q);});
 document.getElementById('fAiFood').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const q=e.target.value.trim();if(q)lookupFood(q);}});
-document.getElementById('aiResAdd').addEventListener('click',()=>{if(!aiData)return;meals.push({id:Date.now(),name:aiData.name,cal:aiData.calories,p:aiData.protein,c:aiData.carbs,f:aiData.fat});save(`meals:${dk}`,meals);rerender();closeMealForm();});
+document.getElementById('aiResAdd').addEventListener('click',()=>{if(!aiData)return;meals.push({id:Date.now(),name:aiData.name,cal:aiData.calories,p:aiData.protein,c:aiData.carbs,f:aiData.fat});save(`meals:${viewDate}`,meals);rerender();closeMealForm();});
 document.getElementById('aiResEdit').addEventListener('click',()=>{if(!aiData)return;document.getElementById('fMealName').value=aiData.name;document.getElementById('fMealCal').value=aiData.calories;document.getElementById('fMealP').value=aiData.protein;document.getElementById('fMealC').value=aiData.carbs;document.getElementById('fMealF').value=aiData.fat;['method-tab','method-panel'].forEach(c=>document.querySelectorAll('.'+c).forEach(x=>x.classList.remove('active')));document.querySelector('[data-method="manual"]').classList.add('active');document.getElementById('panel-manual').classList.add('active');});
 
 document.getElementById('barcodeLookup').addEventListener('click',()=>{const c=document.getElementById('barcodeInput').value.trim();if(c)lookupBarcode(c);});
 document.getElementById('barcodeInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const c=e.target.value.trim();if(c)lookupBarcode(c);}});
 document.getElementById('bcServing').addEventListener('input',updateBarcodeDisplay);
-document.getElementById('bcResAdd').addEventListener('click',()=>{if(!bcPer100)return;const g=+document.getElementById('bcServing').value||100,m=g/100;meals.push({id:Date.now(),name:bcPer100.name,cal:Math.round(bcPer100.cal*m),p:Math.round(bcPer100.p*m),c:Math.round(bcPer100.c*m),f:Math.round(bcPer100.f*m)});save(`meals:${dk}`,meals);rerender();closeMealForm();});
+document.getElementById('bcResAdd').addEventListener('click',()=>{if(!bcPer100)return;const g=+document.getElementById('bcServing').value||100,m=g/100;meals.push({id:Date.now(),name:bcPer100.name,cal:Math.round(bcPer100.cal*m),p:Math.round(bcPer100.p*m),c:Math.round(bcPer100.c*m),f:Math.round(bcPer100.f*m)});save(`meals:${viewDate}`,meals);rerender();closeMealForm();});
 document.getElementById('bcResEdit').addEventListener('click',()=>{if(!bcPer100)return;const g=+document.getElementById('bcServing').value||100,m=g/100;document.getElementById('fMealName').value=bcPer100.name;document.getElementById('fMealCal').value=Math.round(bcPer100.cal*m);document.getElementById('fMealP').value=Math.round(bcPer100.p*m);document.getElementById('fMealC').value=Math.round(bcPer100.c*m);document.getElementById('fMealF').value=Math.round(bcPer100.f*m);['method-tab','method-panel'].forEach(c=>document.querySelectorAll('.'+c).forEach(x=>x.classList.remove('active')));document.querySelector('[data-method="manual"]').classList.add('active');document.getElementById('panel-manual').classList.add('active');stopScanner();});
-document.getElementById('fMealSave2').addEventListener('click',()=>{const nm=document.getElementById('fMealName').value.trim();if(!nm)return;meals.push({id:Date.now(),name:nm,cal:+document.getElementById('fMealCal').value||0,p:+document.getElementById('fMealP').value||0,c:+document.getElementById('fMealC').value||0,f:+document.getElementById('fMealF').value||0});save(`meals:${dk}`,meals);['fMealName','fMealCal','fMealP','fMealC','fMealF'].forEach(id=>document.getElementById(id).value='');closeMealForm();rerender();});
+document.getElementById('fMealSave2').addEventListener('click',()=>{const nm=document.getElementById('fMealName').value.trim();if(!nm)return;meals.push({id:Date.now(),name:nm,cal:+document.getElementById('fMealCal').value||0,p:+document.getElementById('fMealP').value||0,c:+document.getElementById('fMealC').value||0,f:+document.getElementById('fMealF').value||0});save(`meals:${viewDate}`,meals);['fMealName','fMealCal','fMealP','fMealC','fMealF'].forEach(id=>document.getElementById(id).value='');closeMealForm();rerender();});
 
 // Steps
 document.querySelectorAll('[data-steps]').forEach(b=>{b.addEventListener('click',()=>{
-  todaySteps+=parseInt(b.dataset.steps);save(`steps:${dk}`,todaySteps);rerender();
+  todaySteps+=parseInt(b.dataset.steps);save(`steps:${viewDate}`,todaySteps);rerender();
   b.style.background='var(--accent-dim)';b.style.borderColor='var(--accent)';b.style.color='var(--accent)';
   setTimeout(()=>{b.style.background='';b.style.borderColor='';b.style.color='';},400);
 })});
@@ -970,11 +977,11 @@ const sOv=document.getElementById('stepsFormOverlay');
 document.getElementById('btnSetSteps').addEventListener('click',()=>{sOv.style.display='flex';document.getElementById('fSteps').value=todaySteps||'';setTimeout(()=>document.getElementById('fSteps').focus(),100);});
 document.getElementById('fStepsCancel').addEventListener('click',()=>{sOv.style.display='none';});
 sOv.addEventListener('click',e=>{if(e.target===sOv)sOv.style.display='none';});
-document.getElementById('fStepsSave').addEventListener('click',()=>{const v=+document.getElementById('fSteps').value;if(v>=0){todaySteps=v;save(`steps:${dk}`,todaySteps);rerender();}sOv.style.display='none';});
+document.getElementById('fStepsSave').addEventListener('click',()=>{const v=+document.getElementById('fSteps').value;if(v>=0){todaySteps=v;save(`steps:${viewDate}`,todaySteps);rerender();}sOv.style.display='none';});
 
 // Water
 document.querySelectorAll('[data-ml]').forEach(b=>{b.addEventListener('click',()=>{
-  todayWater+=parseInt(b.dataset.ml);save(`water:${dk}`,todayWater);rerender();
+  todayWater+=parseInt(b.dataset.ml);save(`water:${viewDate}`,todayWater);rerender();
   b.style.background='rgba(0,210,211,0.12)';b.style.borderColor='var(--cyan)';b.style.color='var(--cyan)';
   setTimeout(()=>{b.style.background='';b.style.borderColor='';b.style.color='';},400);
 })});
@@ -982,10 +989,10 @@ document.querySelectorAll('[data-ml]').forEach(b=>{b.addEventListener('click',()
 // Complete Day
 document.getElementById('btnCompleteDay').addEventListener('click',()=>{
   if(dayCompleted)return;
-  dayCompleted=true;save(`completed:${dk}`,true);rerender();
+  dayCompleted=true;save(`completed:${viewDate}`,true);rerender();
 });
 document.getElementById('btnUndoComplete').addEventListener('click',()=>{
-  dayCompleted=false;save(`completed:${dk}`,false);rerender();
+  dayCompleted=false;save(`completed:${viewDate}`,false);rerender();
 });
 
 // Weight
@@ -993,10 +1000,45 @@ const wOv=document.getElementById('weightFormOverlay');
 document.getElementById('btnAddWeight').addEventListener('click',()=>{wOv.style.display='flex';setTimeout(()=>document.getElementById('fWeight').focus(),100);});
 document.getElementById('fWeightCancel').addEventListener('click',()=>{wOv.style.display='none';});
 wOv.addEventListener('click',e=>{if(e.target===wOv)wOv.style.display='none';});
-document.getElementById('fWeightSave').addEventListener('click',()=>{const v=+document.getElementById('fWeight').value;if(!v)return;weights=weights.filter(w=>w.date!==dk);weights.push({date:dk,value:v});weights.sort((a,b)=>a.date.localeCompare(b.date));save('weights',weights);document.getElementById('fWeight').value='';wOv.style.display='none';renderProgress();renderPrediction();});
+document.getElementById('fWeightSave').addEventListener('click',()=>{const v=+document.getElementById('fWeight').value;if(!v)return;weights=weights.filter(w=>w.date!==viewDate);weights.push({date:viewDate,value:v});weights.sort((a,b)=>a.date.localeCompare(b.date));save('weights',weights);document.getElementById('fWeight').value='';wOv.style.display='none';renderProgress();renderPrediction();});
+
+// ── DATE NAVIGATION ───────────────────────────────────────
+function updateHeaderDate(){
+  const isToday=viewDate===realToday;
+  const d=new Date(viewDate+'T12:00:00');
+  document.getElementById('headerDate').textContent=isToday?'Today':d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+  document.getElementById('dateNext').disabled=isToday;
+  document.getElementById('datePrev').disabled=viewDate<=START_DATE;
+  document.getElementById('pastDayBar').style.display=isToday?'none':'';
+}
+function loadViewDate(){
+  meals=load(`meals:${viewDate}`,[]);
+  completedEx=load(`workouts:${viewDate}`,{});
+  todaySteps=load(`steps:${viewDate}`,0);
+  todayWater=load(`water:${viewDate}`,0);
+  dayCompleted=load(`completed:${viewDate}`,false);
+  selectedWorkoutKey=load(`workoutChoice:${viewDate}`,'today');
+  expandedEx={};
+  updateHeaderDate();
+  buildWorkoutPicker();
+  rerender();
+  renderTraining();
+  renderProgress();
+}
+function changeDate(delta){
+  const d=new Date(viewDate+'T12:00:00');
+  d.setDate(d.getDate()+delta);
+  const nd=d.toISOString().slice(0,10);
+  if(nd<START_DATE||nd>realToday)return;
+  viewDate=nd;
+  loadViewDate();
+  document.querySelector('.tab-content').scrollTop=0;
+}
+document.getElementById('datePrev').addEventListener('click',()=>changeDate(-1));
+document.getElementById('dateNext').addEventListener('click',()=>changeDate(1));
 
 // ── INIT ──────────────────────────────────────────────────
-document.getElementById('headerDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+updateHeaderDate();
 buildWorkoutPicker();
 renderPresets();rerender();
 renderTraining();renderProgress();
