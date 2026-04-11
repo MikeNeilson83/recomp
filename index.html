@@ -223,6 +223,20 @@ body{font-family:var(--body);background:var(--bg);color:var(--text);-webkit-font
 #toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:9px 18px;border-radius:20px;font-size:12px;z-index:300;opacity:0;transition:opacity 0.25s,transform 0.25s;pointer-events:none;white-space:nowrap}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.food-card{background:var(--s3);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer;transition:all 0.15s;-webkit-user-select:none;user-select:none}
+.food-card:active{background:var(--accent-dim);border-color:var(--accent)}
+.food-card.selected{border-color:var(--accent);background:var(--accent-dim)}
+.food-card-name{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px}
+.food-card-brand{font-size:10px;color:var(--dim);margin-bottom:4px}
+.food-card-macros{font-family:var(--mono);font-size:10px;color:var(--text2)}
+.food-source{font-size:9px;color:var(--dim);letter-spacing:0.5px;margin-top:4px;font-style:italic}
+.qty-row{display:flex;align-items:center;gap:10px;margin:10px 0 4px}
+.qty-btn{width:34px;height:34px;background:var(--s4);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700;transition:all 0.15s;flex-shrink:0;line-height:1}
+.qty-btn:active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.qty-display{font-family:var(--display);font-size:18px;font-weight:800;min-width:28px;text-align:center}
+.yt-link{display:block;background:var(--s3);border:1px solid var(--border2);border-radius:6px;padding:8px 12px;font-size:11px;text-align:center;color:var(--text2);text-decoration:none;margin:8px 0 4px;transition:all 0.15s}
+.yt-link:active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.freq-section-label{width:100%;padding:4px 0 2px;font-family:var(--mono);font-size:8px;letter-spacing:1.5px;text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -305,8 +319,9 @@ body{font-family:var(--body);background:var(--bg);color:var(--text);-webkit-font
         <select id="workoutPicker" class="workout-picker"></select>
       </div>
       <div class="card" id="workoutHeader"></div>
+      <div id="workoutNotes"></div>
       <div id="exerciseList"></div>
-      <div class="tip" id="trainingTip" style="display:none"><strong>Rest 60s between sets.</strong> Push final 2 reps close to failure. Ab finisher: move straight through all 3 exercises, then rest 60s.</div>
+      <div class="tip" id="trainingTip" style="display:none"></div>
     </div>
 
     <!-- PROGRESS -->
@@ -348,9 +363,33 @@ body{font-family:var(--body);background:var(--bg);color:var(--text);-webkit-font
       <button class="method-tab" data-method="manual">✏️ Manual</button>
     </div>
     <div id="panel-ai" class="method-panel active">
-      <div class="ai-search-wrap"><input class="input" id="fAiFood" placeholder="e.g. chicken breast with rice" enterkeyhint="search"><button class="ai-search-btn" id="fAiSearch">Look up</button></div>
+      <div class="ai-search-wrap"><input class="input" id="fAiFood" placeholder="e.g. chicken breast" enterkeyhint="search"><button class="ai-search-btn" id="fAiSearch">Look up</button></div>
       <div class="ai-status" id="aiStatus"></div>
-      <div id="aiResult" style="display:none"><div class="ai-result"><div class="ai-result-name" id="aiResName"></div><div class="ai-result-macros" id="aiResMacros"></div><div class="ai-result-note" id="aiResNote"></div></div><div style="display:flex;gap:8px"><button class="btn" style="flex:1" id="aiResEdit">Edit</button><button class="btn btn-primary" style="flex:2" id="aiResAdd">Add to log</button></div></div>
+      <!-- API results -->
+      <div id="apiResults" style="display:none">
+        <div id="apiResultsList"></div>
+        <div id="apiSelected" style="display:none">
+          <div class="ai-result" style="padding-bottom:4px">
+            <div class="ai-result-name" id="apiResName"></div>
+            <div class="serving-row" style="margin-top:8px"><label>Serving</label><input class="input serving-input" id="apiServing" type="number" inputmode="numeric" value="100"><span class="serving-unit">g</span></div>
+            <div class="ai-result-macros" id="apiResMacros" style="margin-top:6px"></div>
+            <div class="ai-result-note" id="apiResNote"></div>
+          </div>
+          <div class="qty-row"><button class="qty-btn" id="apiQtyMinus">−</button><div class="qty-display" id="apiQtyVal">1</div><button class="qty-btn" id="apiQtyPlus">+</button><span style="font-size:11px;color:var(--dim)">portions</span></div>
+          <div style="display:flex;gap:8px;margin-top:4px"><button class="btn" style="flex:1" id="apiResEdit">Edit</button><button class="btn btn-primary" style="flex:2" id="apiResAdd">Add to log</button></div>
+        </div>
+      </div>
+      <!-- Offline / fallback result -->
+      <div id="aiResult" style="display:none">
+        <div class="ai-result">
+          <div class="ai-result-name" id="aiResName"></div>
+          <div class="ai-result-macros" id="aiResMacros"></div>
+          <div id="aiServingRow" class="serving-row" style="display:none"><label>Serving</label><input class="input serving-input" id="aiServing" type="number" inputmode="numeric" value="100"><span class="serving-unit">g</span></div>
+          <div class="ai-result-note" id="aiResNote"></div>
+        </div>
+        <div class="qty-row"><button class="qty-btn" id="aiQtyMinus">−</button><div class="qty-display" id="aiQtyVal">1</div><button class="qty-btn" id="aiQtyPlus">+</button><span style="font-size:11px;color:var(--dim)">portions</span></div>
+        <div style="display:flex;gap:8px"><button class="btn" style="flex:1" id="aiResEdit">Edit</button><button class="btn btn-primary" style="flex:2" id="aiResAdd">Add to log</button></div>
+      </div>
     </div>
     <div id="panel-barcode" class="method-panel">
       <div style="text-align:center;padding:16px 0;color:var(--dim)"><div style="font-size:13px;margin-bottom:8px">Type the barcode number from the packet</div><div style="font-size:10px;color:var(--dim2)">(Camera scanning works on HTTPS / GitHub Pages)</div></div>
@@ -358,6 +397,7 @@ body{font-family:var(--body);background:var(--bg);color:var(--text);-webkit-font
       <div class="scanner-status" id="scannerStatus" style="margin-top:8px"></div>
       <div id="barcodeResult" style="display:none;margin-top:10px">
         <div class="ai-result"><div class="ai-result-name" id="bcResName"></div><div class="ai-result-macros" id="bcResMacros"></div><div class="serving-row"><label>Serving</label><input class="input serving-input" id="bcServing" type="number" inputmode="numeric" value="100"><span class="serving-unit">g</span></div><div class="ai-result-note" id="bcResNote"></div></div>
+        <div class="qty-row"><button class="qty-btn" id="bcQtyMinus">−</button><div class="qty-display" id="bcQtyVal">1</div><button class="qty-btn" id="bcQtyPlus">+</button><span style="font-size:11px;color:var(--dim)">portions</span></div>
         <div style="display:flex;gap:8px"><button class="btn" style="flex:1" id="bcResEdit">Edit</button><button class="btn btn-primary" style="flex:2" id="bcResAdd">Add to log</button></div>
       </div>
       <div id="cameraSection" style="display:none;margin-top:12px">
@@ -421,12 +461,14 @@ const EX_DB={
 "Floor Dumbbell Fly":{muscles:["Chest","Front Delts"],steps:["Lie on floor, dumbbells above chest with a slight elbow bend. Palms face each other.","Open arms out in a wide arc until elbows touch the floor.","Squeeze chest to bring dumbbells back together. Imagine hugging a tree."],why:"Flies stretch chest fibres in a way pressing can't. The floor limits range of motion to protect your shoulders. Use light weight and feel the muscle.",mistakes:"Don't straighten arms. Keep slight bend throughout. If you can't feel your chest, go lighter."},
 "Standing Overhead Press":{muscles:["Front & Side Delts","Triceps","Core"],steps:["Stand feet shoulder-width. Hold dumbbells at shoulder height, palms forward.","Brace your core hard. Press dumbbells straight overhead until arms fully extended.","Lower under control back to shoulder height. Keep ribs down throughout."],why:"The overhead press is the gold-standard shoulder builder. Standing version forces core to stabilise, recruiting more total muscle. Schoenfeld (2016) meta-analysis supports pressing movements 2x/week for optimal deltoid hypertrophy.",mistakes:"Don't lean back excessively — this means your core isn't braced. Keep glutes squeezed and ribs tucked."},
 "Lateral Raise":{muscles:["Side Delts"],steps:["Stand with dumbbells at sides. Lean forward slightly (10°).","Raise dumbbells out to sides until parallel to floor. Lead with elbows — imagine pouring water from a jug.","Lower slowly over 3 seconds."],why:"Side delts give you the rounded shoulder cap and make your frame wider. They only get meaningful stimulus from isolation work like this. Lightest dumbbells, strict form.",mistakes:"Don't shrug your traps — that steals the work. Don't swing. If you can't do 15 clean reps, go lighter."},
-"Diamond Push-Up":{muscles:["Triceps","Inner Chest","Core"],steps:["Push-up position with hands close together — thumbs and index fingers form a diamond shape.","Lower until chest nearly touches hands, elbows tucked close to sides.","Push back up. Do these from knees if needed — no shame in it."],why:"ACE research identifies diamond push-ups as one of the most effective tricep exercises. Triceps make up two-thirds of your upper arm — train them hard.",mistakes:"Don't flare elbows out. Keep them tucked alongside your ribs. Keep hips in line — no sagging or hiking."},
+"Bear Plank Shoulder Tap":{muscles:["Core","Shoulders","Triceps"],steps:["Start on all fours — hands under shoulders, knees under hips. Lift knees 2 inches off the ground so you're hovering.","Keeping core braced and back flat, tap your left shoulder with your right hand.","Return hand to floor, tap right shoulder with left hand. That's one rep per side."],why:"Bear planks with shoulder taps combine anti-extension and anti-rotation core work (McGill 2010). The hovering position forces deep core activation that standard planks can't match.",mistakes:"Don't let hips rock side to side. Go slow. If hips are swaying, widen your feet."},
 "Bent-Over Dumbbell Row":{muscles:["Lats","Rhomboids","Rear Delts","Biceps"],steps:["Stand hip-width apart. Hinge forward 45° at hips, back flat. Dumbbells hang at arm's length.","Pull both dumbbells to your hip bones simultaneously. Lead with elbows, squeeze shoulder blades together at top.","Lower under control. Feel the stretch in your lats at the bottom."],why:"The primary V-taper builder. Wide lats make your waist look narrower. Also fixes desk-posture rounded shoulders. Schoenfeld (2016) meta-analysis shows back training 2x/week is optimal for hypertrophy.",mistakes:"Don't round your lower back — if you can't keep it flat, go lighter. Don't yank with momentum. Controlled on both directions."},
 "Single-Arm Row (on chair)":{muscles:["Lats","Rhomboids","Biceps","Core"],steps:["One hand and same-side knee on a sturdy chair for support. Other foot wide on the floor. Dumbbell hangs in free hand.","Pull dumbbell to your hip, driving elbow past your ribcage. Squeeze shoulder blade for 1 second.","Lower slowly. Complete all reps on one side, then switch."],why:"Single-arm rows allow heavier loading than bilateral rows. The anti-rotation demand also engages your obliques as a bonus.",mistakes:"Shoulders stay square to the floor — don't twist your torso to get the weight up. If you're twisting, reduce the weight."},
 "Reverse Fly (bent over)":{muscles:["Rear Delts","Rhomboids","Upper Traps"],steps:["Hinge forward as in bent-over row. Light dumbbells hanging, palms facing each other.","Keep a slight elbow bend. Raise both arms out to your sides until parallel to floor.","Squeeze shoulder blades hard at the top, then lower slowly."],why:"Rear delts are chronically underdeveloped and destroyed by desk work. Training them directly restores posture and shoulder health. These are small muscles — use the lightest dumbbells you have.",mistakes:"Don't swing or use momentum. If you're swinging, the weight is too heavy. This exercise is almost always done too heavy."},
 "Dumbbell Pullover (floor)":{muscles:["Lats","Serratus Anterior","Long Head Triceps"],steps:["Lie on back, knees bent. Hold one dumbbell with both hands above your chest, arms slightly bent.","Lower the dumbbell in an arc behind your head until it touches the floor — or as far as comfortable.","Pull it back over your chest in the same arc. Feel the stretch through your lats and ribcage."],why:"One of the few exercises that stretches and loads the lats without a pull-up bar. Also hits serratus anterior — the finger-like muscles on ribcage sides visible when very lean.",mistakes:"Keep a consistent slight elbow bend throughout. Don't arch your lower back as the weight goes behind your head."},
-"Prone Y-Raise":{muscles:["Lower Traps","Rear Delts","Rotator Cuff"],steps:["Lie face down on the floor. Arms overhead at 45° angles forming a Y shape. Thumbs pointing up.","Lift both arms as high as comfortable, squeezing shoulder blades DOWN and together.","Hold 2 seconds at the top. Lower with control. Use very light weight or no weight."],why:"Targets the lower trapezius — the muscle that pulls your shoulder blades down and back. This is the single best exercise for undoing the desk-hunch. Chronically weak in almost everyone.",mistakes:"Only your arms and upper back should move. Don't lift with your lower back. If using weight, use the absolute lightest dumbbells."},
+"Prone Y-Raise":{muscles:["Lower Traps","Rear Delts","Rotator Cuff"],steps:["Lie face down on the floor. Arms overhead at 45° angles forming a Y shape. Thumbs pointing up.","Lift both arms as high as comfortable, squeezing shoulder blades DOWN and together.","Hold 2 seconds at the top. Lower with control. Use very light weight or no weight."],why:"Targets the lower trapezius — the muscle that pulls your shoulder blades down and back. This is the single best exercise for undoing the desk-hunch. Chronically weak in almost everyone. This is one of your most important exercises for fixing hunched posture. The lower traps it targets are the direct antagonist to the tight upper traps that pull your shoulders forward.",mistakes:"Only your arms and upper back should move. Don't lift with your lower back. If using weight, use the absolute lightest dumbbells."},
+"Wall Slide":{muscles:["Lower Traps","Serratus Anterior","Rotator Cuff"],steps:["Stand with your back flat against a wall. Feet 6 inches from the wall. Press your entire back, head, and arms against the wall.","Start with arms in a goalpost position — elbows at 90 degrees, upper arms parallel to floor, all pressed against the wall.","Slowly slide your arms up the wall until straight overhead, keeping everything in contact with the wall. Then slide back down to goalpost position."],why:"Wall slides are considered the gold standard for scapular mobility and thoracic extension (Cools et al. 2007). They directly counteract forward-shoulder posture from desk work. Doing these as a warm-up ensures your shoulder blades move properly before loading them.",mistakes:"If your lower back arches off the wall, squeeze your abs to keep it flat. If your arms can't stay on the wall, that shows exactly why you need this exercise. Do what range you can — it will improve weekly."},
+"Glute Bridge":{muscles:["Glutes","Hamstrings","Core"],steps:["Lie on your back, knees bent, feet flat on floor hip-width apart. Arms by your sides.","Push through your heels and squeeze your glutes to lift your hips until your body forms a straight line from shoulders to knees.","Squeeze glutes HARD at the top for 2 seconds. Lower slowly. Don't let your lower back do the work."],why:"Anterior pelvic tilt — the posture that pushes your belly forward — is primarily caused by weak glutes and tight hip flexors from sitting all day (Page et al. 2010). Glute bridges directly fix this by strengthening the glutes and teaching your pelvis to tilt posteriorly. This single exercise will visually flatten your stomach by correcting pelvic position, even before you lose fat.",mistakes:"Don't hyperextend at the top — stop when your body is in a straight line. If you feel this in your lower back instead of your glutes, push through your heels more and focus on squeezing your bum."},
 "Arnold Press":{muscles:["Front Delts","Side Delts","Rear Delts","Triceps"],steps:["Start with dumbbells at shoulder height, palms facing YOU (as if at the top of a bicep curl).","Press upward while rotating your palms to face AWAY. At full extension, palms face forward.","Reverse the rotation on the way down — palms rotate back toward you as you lower."],why:"Named after Schwarzenegger for good reason: the rotation hits all three deltoid heads in one movement. Highly efficient for shoulder development.",mistakes:"Don't rush the rotation. It should be a smooth, continuous movement — not a jerk. Go lighter than you think you need to."},
 "Floor Press (narrow grip)":{muscles:["Triceps","Inner Chest","Front Delts"],steps:["Lie on floor as in regular floor press, but bring elbows closer — about 30° from your sides.","Press upward, focusing the effort through your triceps rather than chest.","Lower until elbows touch floor, pause 1 second, press again."],why:"Shifts the emphasis of a pressing movement onto the triceps. Big triceps = two-thirds of upper arm size. The floor limits range to protect elbows.",mistakes:"Don't bring hands so close that your wrists hurt. Roughly shoulder-width or just inside is correct."},
 "Renegade Row":{muscles:["Lats","Core","Shoulders","Biceps"],steps:["Push-up position with hands gripping dumbbells. Set feet wide for balance.","Row one dumbbell to your hip. Keep hips completely square — no twisting.","Lower it, then row the other side. That's one rep per arm."],why:"Two exercises in one — back and anti-rotation core. The demand on your core to prevent hip rotation is brutal and very functional.",mistakes:"Wider feet make this easier and more stable. Use a moderate weight — your core will fail before your back if you go too heavy."},
@@ -453,9 +495,11 @@ const WORKOUTS={
     {name:"Floor Dumbbell Fly",sets:"3×12-15",weight:"Lighter pair"},
     {name:"Standing Overhead Press",sets:"3×10-12",weight:"Medium pair"},
     {name:"Lateral Raise",sets:"3×15",weight:"Lightest pair"},
-    {name:"Diamond Push-Up",sets:"3×max reps",weight:"Bodyweight"},
+    {name:"Bear Plank Shoulder Tap",sets:"3×10/side",weight:"Bodyweight"},
+    {name:"Glute Bridge",sets:"3×15",weight:"Bodyweight"},
   ]},
   tue:{name:"Pull A",tag:"BACK / BICEPS",exercises:[
+    {name:"Wall Slide",sets:"2×10",weight:"Bodyweight"},
     {name:"Bent-Over Dumbbell Row",sets:"3×10-12",weight:"Heaviest pair"},
     {name:"Single-Arm Row (on chair)",sets:"3×12/arm",weight:"Heaviest single"},
     {name:"Reverse Fly (bent over)",sets:"3×15",weight:"Lightest pair"},
@@ -468,9 +512,11 @@ const WORKOUTS={
     {name:"Floor Press (narrow grip)",sets:"3×12-15",weight:"Heaviest pair"},
     {name:"Floor Dumbbell Fly",sets:"3×12-15",weight:"Lighter pair"},
     {name:"Lateral Raise",sets:"3×15",weight:"Lightest pair"},
-    {name:"Diamond Push-Up",sets:"3×max reps",weight:"Bodyweight"},
+    {name:"Bear Plank Shoulder Tap",sets:"3×10/side",weight:"Bodyweight"},
+    {name:"Glute Bridge",sets:"3×15",weight:"Bodyweight"},
   ]},
   fri:{name:"Pull B",tag:"BACK / REAR DELTS",exercises:[
+    {name:"Wall Slide",sets:"2×10",weight:"Bodyweight"},
     {name:"Renegade Row",sets:"3×8/arm",weight:"Medium pair"},
     {name:"Bent-Over Dumbbell Row",sets:"3×15",weight:"Heaviest pair"},
     {name:"Reverse Fly (bent over)",sets:"3×15",weight:"Lightest pair"},
@@ -478,9 +524,9 @@ const WORKOUTS={
     {name:"Prone Y-Raise",sets:"3×12",weight:"Light or none"},
   ]},
   sat:{name:"Full Upper Blast",tag:"PUMP SESSION",exercises:[
-    {name:"Floor Press",sets:"2×15",weight:"Heaviest pair"},
-    {name:"Bent-Over Row",sets:"2×15",weight:"Heaviest pair"},
-    {name:"Arnold Press",sets:"2×15",weight:"Medium pair"},
+    {name:"Floor Press",sets:"2×15-20",weight:"Heaviest pair"},
+    {name:"Bent-Over Row",sets:"2×15-20",weight:"Heaviest pair"},
+    {name:"Arnold Press",sets:"2×15-20",weight:"Medium pair"},
     {name:"Lateral Raise Drop Set",sets:"2 rounds",weight:"Heavy → Light"},
     {name:"Plank to Push-Up",sets:"3×8",weight:"Bodyweight"},
   ]},
@@ -503,7 +549,8 @@ const realToday=dateKey();
 let viewDate=realToday;
 const viewDayKey=()=>{const d=new Date(viewDate+'T12:00:00');return DAYS[d.getDay()===0?6:d.getDay()-1]};
 let meals=load(`meals:${viewDate}`,[]),weights=load('weights',[]),completedEx=load(`workouts:${viewDate}`,{});
-let expandedEx={},aiData=null,bcPer100=null,scannerStream=null,scannerActive=false;
+let expandedEx={},aiData=null,bcPer100=null,apiPer100=null,aiOfflineSingle=null,scannerStream=null,scannerActive=false;
+let apiQty=1,aiQty=1,bcQty=1;
 let todaySteps=load(`steps:${viewDate}`,0);
 let todayWater=load(`water:${viewDate}`,0);
 let dayCompleted=load(`completed:${viewDate}`,false);
@@ -553,10 +600,16 @@ async function lookupBarcode(code){
   }catch(e){st.className='scanner-status error';st.textContent='Lookup failed. Check connection.'}
 }
 function updateBarcodeDisplay(){
-  if(!bcPer100)return;const g=+document.getElementById('bcServing').value||100,m=g/100;
+  if(!bcPer100)return;const g=+document.getElementById('bcServing').value||100,m=g/100*bcQty;
   document.getElementById('bcResName').textContent=bcPer100.name;
   document.getElementById('bcResMacros').innerHTML=`<strong>${Math.round(bcPer100.cal*m)}</strong> kcal · P: <strong>${Math.round(bcPer100.p*m)}g</strong> · C: <strong>${Math.round(bcPer100.c*m)}g</strong> · F: <strong>${Math.round(bcPer100.f*m)}g</strong>`;
-  document.getElementById('bcResNote').textContent=`Per ${g}g (100g: ${bcPer100.cal}cal / ${bcPer100.p}p / ${bcPer100.c}c / ${bcPer100.f}f)`;
+  document.getElementById('bcResNote').textContent=`${bcQty>1?bcQty+'× ':''}${g}g (100g: ${bcPer100.cal}cal / ${bcPer100.p}p / ${bcPer100.c}c / ${bcPer100.f}f)`;
+}
+function trackFood(name,cal,p,c,f){
+  const freq=load('food_freq',{});
+  if(!freq[name])freq[name]={count:0,cal,p,c,f};
+  freq[name].count++;freq[name].cal=cal;freq[name].p=p;freq[name].c=c;freq[name].f=f;
+  save('food_freq',freq);
 }
 async function startScanner(){
   if(scannerActive||!isHTTPS)return;
@@ -694,19 +747,101 @@ function parseMeal(query){
   }
   return items.length>0?{items,cal:totalCal,p:totalP,c:totalC,f:totalF}:null;
 }
-function lookupFood(q){
-  const st=document.getElementById('aiStatus'),res=document.getElementById('aiResult');
-  st.className='ai-status';st.textContent='Looking up...';res.style.display='none';aiData=null;
-  const result=parseMeal(q);
-  if(!result){st.className='ai-status error';st.textContent="Couldn't match that. Try simpler terms or manual entry.";return;}
-  const name=result.items.map(i=>(i.mult>1?i.mult+'× ':'')+i.name).join(' + ');
-  const breakdown=result.items.map(i=>`${i.mult>1?i.mult+'× ':''}${i.name}: ${i.cal}kcal`).join(' · ');
-  aiData={name,calories:result.cal,protein:result.p,carbs:result.c,fat:result.f,note:breakdown};
-  st.innerHTML='<span style="color:var(--green)">✓</span> Found '+result.items.length+' item'+(result.items.length>1?'s':'');
-  document.getElementById('aiResName').textContent=name;
-  document.getElementById('aiResMacros').innerHTML=`<strong>${result.cal}</strong> kcal · P: <strong>${result.p}g</strong> · C: <strong>${result.c}g</strong> · F: <strong>${result.f}g</strong>`;
-  document.getElementById('aiResNote').textContent=breakdown;
-  res.style.display='';
+function isCompoundQuery(q){return /,|\bwith\b|\band\b|\bplus\b/.test(q.toLowerCase());}
+
+async function searchOpenFoodFacts(query){
+  const r=await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=5&fields=product_name,brands,nutriments,serving_quantity`);
+  const data=await r.json();
+  return(data.products||[]).filter(p=>p.product_name&&p.nutriments&&p.nutriments['energy-kcal_100g']!=null).slice(0,5);
+}
+
+function renderApiCards(products){
+  const list=document.getElementById('apiResultsList');
+  list.innerHTML=products.map((p,i)=>{
+    const n=p.nutriments,name=p.product_name,brand=p.brands||'';
+    const cal=Math.round(n['energy-kcal_100g']||0),prot=Math.round(n.proteins_100g||0),carb=Math.round(n.carbohydrates_100g||0),fat=Math.round(n.fat_100g||0);
+    return`<div class="food-card" data-idx="${i}"><div class="food-card-name">${esc(name)}</div>${brand?`<div class="food-card-brand">${esc(brand)}</div>`:''}<div class="food-card-macros"><strong>${cal}</strong> kcal · P: <strong>${prot}g</strong> · C: <strong>${carb}g</strong> · F: <strong>${fat}g</strong> <span style="color:var(--dim)">/ 100g</span></div><div class="food-source">Via Open Food Facts</div></div>`;
+  }).join('');
+  list.querySelectorAll('.food-card').forEach((card,i)=>{
+    card.addEventListener('click',()=>{
+      list.querySelectorAll('.food-card').forEach(c=>c.classList.remove('selected'));
+      card.classList.add('selected');
+      const p=products[i],n=p.nutriments,name=p.product_name,brand=p.brands||'';
+      apiPer100={name:brand?`${name} (${brand})`:name,
+        cal:+(n['energy-kcal_100g']||0),p:+(n.proteins_100g||0),
+        c:+(n.carbohydrates_100g||0),f:+(n.fat_100g||0)};
+      const serv=Math.round(p.serving_quantity)||100;
+      document.getElementById('apiServing').value=serv;
+      document.getElementById('apiResName').textContent=apiPer100.name;
+      updateApiDisplay();
+      document.getElementById('apiSelected').style.display='';
+    });
+  });
+}
+
+function updateApiDisplay(){
+  if(!apiPer100)return;
+  const g=+document.getElementById('apiServing').value||100,m=g/100*apiQty;
+  document.getElementById('apiResMacros').innerHTML=`<strong>${Math.round(apiPer100.cal*m)}</strong> kcal · P: <strong>${Math.round(apiPer100.p*m)}g</strong> · C: <strong>${Math.round(apiPer100.c*m)}g</strong> · F: <strong>${Math.round(apiPer100.f*m)}g</strong>`;
+  document.getElementById('apiResNote').textContent=`${apiQty>1?apiQty+'× ':''}${g}g · Via Open Food Facts`;
+}
+
+function updateAiOfflineDisplay(){
+  if(!aiOfflineSingle)return;
+  const g=+document.getElementById('aiServing').value||aiOfflineSingle.defaultG;
+  const cal=Math.round(aiOfflineSingle.calPer1g*g*aiQty),p=Math.round(aiOfflineSingle.pPer1g*g*aiQty),c=Math.round(aiOfflineSingle.cPer1g*g*aiQty),f=Math.round(aiOfflineSingle.fPer1g*g*aiQty);
+  document.getElementById('aiResMacros').innerHTML=`<strong>${cal}</strong> kcal · P: <strong>${p}g</strong> · C: <strong>${c}g</strong> · F: <strong>${f}g</strong>`;
+  document.getElementById('aiResNote').textContent=`${aiQty>1?aiQty+'× ':''}${g}g · Estimated from database`;
+  aiData={name:(aiQty>1?aiQty+'× ':'')+aiOfflineSingle.name,calories:cal,protein:p,carbs:c,fat:f};
+}
+
+async function lookupFood(q){
+  const st=document.getElementById('aiStatus'),res=document.getElementById('aiResult'),apiRes=document.getElementById('apiResults');
+  const btn=document.getElementById('fAiSearch');
+  btn.disabled=true;
+  st.className='ai-status';st.textContent='Looking up...';
+  res.style.display='none';apiRes.style.display='none';
+  document.getElementById('apiSelected').style.display='none';
+  document.getElementById('aiServingRow').style.display='none';
+  aiData=null;apiPer100=null;aiOfflineSingle=null;
+  try{
+    if(!isCompoundQuery(q)){
+      try{
+        const products=await searchOpenFoodFacts(q);
+        if(products.length>0){
+          st.innerHTML=`<span style="color:var(--green)">✓</span> Found ${products.length} result${products.length>1?'s':''}`;
+          renderApiCards(products);
+          apiRes.style.display='';
+          return;
+        }
+      }catch(e){/* fall through to offline silently */}
+    }
+    // Offline fallback
+    const result=parseMeal(q);
+    if(!result){st.className='ai-status error';st.textContent="Couldn't match that. Try simpler terms or manual entry.";return;}
+    const name=result.items.map(i=>(i.mult>1?i.mult+'× ':'')+i.name).join(' + ');
+    const breakdown=result.items.map(i=>`${i.mult>1?i.mult+'× ':''}${i.name}: ${i.cal}kcal`).join(' · ');
+    aiData={name,calories:result.cal,protein:result.p,carbs:result.c,fat:result.f};
+    st.innerHTML='<span style="color:var(--green)">✓</span> Found '+result.items.length+' item'+(result.items.length>1?'s':'');
+    document.getElementById('aiResName').textContent=name;
+    if(result.items.length===1){
+      const raw=fuzzyMatch(result.items[0].name)||fuzzyMatch(q.toLowerCase().replace(/^\d+\s+/,''));
+      if(raw){
+        const mult=result.items[0].mult;
+        aiOfflineSingle={name:result.items[0].name,calPer1g:raw.cal/raw.w,pPer1g:raw.p/raw.w,cPer1g:raw.c/raw.w,fPer1g:raw.f/raw.w,s:raw.s,defaultG:Math.round(raw.w*mult)};
+        document.getElementById('aiServing').value=aiOfflineSingle.defaultG;
+        document.getElementById('aiServingRow').style.display='flex';
+        updateAiOfflineDisplay();
+      }else{
+        document.getElementById('aiResMacros').innerHTML=`<strong>${result.cal}</strong> kcal · P: <strong>${result.p}g</strong> · C: <strong>${result.c}g</strong> · F: <strong>${result.f}g</strong>`;
+        document.getElementById('aiResNote').textContent=breakdown+' · Estimated from database';
+      }
+    }else{
+      document.getElementById('aiResMacros').innerHTML=`<strong>${result.cal}</strong> kcal · P: <strong>${result.p}g</strong> · C: <strong>${result.c}g</strong> · F: <strong>${result.f}g</strong>`;
+      document.getElementById('aiResNote').textContent=breakdown+' · Estimated from database';
+    }
+    res.style.display='';
+  }finally{btn.disabled=false;}
 }
 
 // ── SCORE CALC ────────────────────────────────────────────
@@ -786,17 +921,36 @@ function renderCompleteDay(){
 
 function renderPresets(){
   const el=document.getElementById('presets');
-  el.innerHTML=PRESETS.map((p,i)=>`<button class="preset-btn" data-idx="${i}">${p.name}</button>`).join('');
-  el.querySelectorAll('.preset-btn').forEach(b=>{b.addEventListener('click',()=>{
-    const p=PRESETS[+b.dataset.idx];meals.push({id:Date.now(),name:p.name,cal:p.cal,p:p.p,c:p.c,f:p.f});
+  const freq=load('food_freq',{});
+  const frequent=Object.entries(freq).filter(([,v])=>v.count>=2).sort((a,b)=>b[1].count-a[1].count).slice(0,6);
+  let html='';
+  if(frequent.length>0){
+    html+=`<div class="freq-section-label" style="color:var(--accent)">Frequent</div>`;
+    html+=frequent.map(([name,d])=>`<button class="preset-btn freq-btn" data-name="${esc(name)}" data-cal="${d.cal}" data-p="${d.p}" data-c="${d.c}" data-f="${d.f}">${name}</button>`).join('');
+    html+=`<div class="freq-section-label" style="color:var(--dim);margin-top:4px">Presets</div>`;
+  }
+  html+=PRESETS.map((p,i)=>`<button class="preset-btn" data-idx="${i}">${p.name}</button>`).join('');
+  el.innerHTML=html;
+  el.querySelectorAll('.freq-btn').forEach(b=>{b.addEventListener('click',()=>{
+    const name=b.dataset.name,cal=+b.dataset.cal,p=+b.dataset.p,c=+b.dataset.c,f=+b.dataset.f;
+    meals.push({id:Date.now(),name,cal,p,c,f});trackFood(name,cal,p,c,f);
+    save(`meals:${viewDate}`,meals);rerender();
+    b.style.background='var(--accent-dim)';b.style.borderColor='var(--accent)';b.style.color='var(--accent)';
+    setTimeout(()=>{b.style.background='';b.style.borderColor='';b.style.color=''},400);
+  })});
+  el.querySelectorAll('.preset-btn:not(.freq-btn)').forEach(b=>{b.addEventListener('click',()=>{
+    const p=PRESETS[+b.dataset.idx];
+    meals.push({id:Date.now(),name:p.name,cal:p.cal,p:p.p,c:p.c,f:p.f});
+    trackFood(p.name,p.cal,p.p,p.c,p.f);
     save(`meals:${viewDate}`,meals);rerender();
     b.style.background='var(--accent-dim)';b.style.borderColor='var(--accent)';b.style.color='var(--accent)';
     setTimeout(()=>{b.style.background='';b.style.borderColor='';b.style.color=''},400);
   })});
 }
 
-function buildTutorial(tut){
-  return`<div class="ex-tut-inner"><h4>How to do it</h4>${tut.steps.map((s,i)=>`<div class="step"><div class="step-num">${i+1}</div><div>${s}</div></div>`).join('')}<h4>Why this exercise?</h4><p>${tut.why}</p><h4>Common mistakes</h4><p class="common-mistakes">⚠️ ${tut.mistakes}</p><h4>Muscles worked</h4><div class="muscles">${tut.muscles.map(m=>`<span class="muscle-tag">${m}</span>`).join('')}</div></div>`;
+function buildTutorial(tut,exName,isBodyweight){
+  const ytQ=encodeURIComponent((exName||'')+(isBodyweight?' form guide bodyweight':' form guide dumbbell'));
+  return`<div class="ex-tut-inner"><h4>How to do it</h4>${tut.steps.map((s,i)=>`<div class="step"><div class="step-num">${i+1}</div><div>${s}</div></div>`).join('')}<h4>Why this exercise?</h4><p>${tut.why}</p><h4>Common mistakes</h4><p class="common-mistakes">⚠️ ${tut.mistakes}</p><a class="yt-link" href="https://www.youtube.com/results?search_query=${ytQ}" target="_blank" rel="noopener">📹 Watch form guide on YouTube</a><h4>Muscles worked</h4><div class="muscles">${tut.muscles.map(m=>`<span class="muscle-tag">${m}</span>`).join('')}</div></div>`;
 }
 
 function renderTraining(){
@@ -805,16 +959,21 @@ function renderTraining(){
   const doneAb=AB_FINISHER.filter((_,i)=>completedEx[`${wd}-ab-${i}`]).length;
   const totalAll=mainEx.length+(mainEx.length>0?AB_FINISHER.length:0);
   const doneAll=doneMain+doneAb;
+  const isSat=wd==='sat';
 
   const hEl=document.getElementById('workoutHeader');
+  const notesEl=document.getElementById('workoutNotes');
   if(mainEx.length>0){
+    const mins=Math.round(mainEx.length*5+(isSat?5:10));
     hEl.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div><div style="font-size:18px;font-weight:800;font-family:var(--display)">${w.name}</div>
       <div class="tag">${w.tag}</div>
-      <div style="font-size:10px;color:var(--dim);margin-top:6px;font-family:var(--mono)">~30 min · 5 exercises + ab finisher</div></div>
+      <div style="font-size:10px;color:var(--dim);margin-top:6px;font-family:var(--mono)">~${mins} min · ${mainEx.length} exercises${isSat?'':' + ab finisher'}</div></div>
       <div style="text-align:right"><div style="font-size:22px;font-weight:800;font-family:var(--display);color:${doneAll===totalAll?'var(--accent)':'var(--text)'}">${doneAll}/${totalAll}</div>
       <div style="font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:1px">COMPLETE</div></div>
     </div>`;
+    notesEl.innerHTML=`<div class="tip" style="margin-top:0"><strong>Progressive overload:</strong> When you can complete all sets at the top of the rep range with good form, increase the weight next session. Track your weights.</div>
+    <div class="tip">💡 <strong>Posture fix:</strong> Set a phone reminder every hour to pull your shoulder blades back and down, tuck your chin slightly, and squeeze your glutes for 5 seconds. This retrains your resting posture between workouts.</div>`;
   }else{
     const isW=wd==='wed';
     hEl.innerHTML=`<div style="font-size:18px;font-weight:800;font-family:var(--display)">${w.name}</div>
@@ -823,32 +982,34 @@ function renderTraining(){
         <div style="font-size:28px;margin-bottom:6px">${isW?'🐕':'😴'}</div>
         <div style="font-size:12px">${isW?'Walk with Lola. 30–45 mins brisk.':'Full rest. Sleep. Recover. Grow.'}</div>
       </div>`;
+    notesEl.innerHTML='';
   }
 
   let html='';
   mainEx.forEach((ex,i)=>{
     const k=`${wd}-${i}`,dn=completedEx[k],exp=expandedEx[k],tut=EX_DB[ex.name];
+    const isBodyweight=ex.weight==='Bodyweight';
     html+=`<div class="ex-card${dn?' done':''}${exp?' expanded':''}" data-key="${k}">
       <div class="ex-header" data-expand="${k}">
         <div class="ex-left"><div class="ex-name${dn?' struck':''}">${esc(ex.name)}</div>
-        <div class="ex-meta"><span style="color:var(--accent)">${ex.sets}</span><span style="color:var(--dim)">${ex.weight}</span></div></div>
+        <div class="ex-meta"><span style="color:var(--accent)">${ex.sets}</span><span style="color:var(--dim)">${ex.weight}</span><span style="color:var(--dim2);font-family:var(--mono);font-size:9px">3-1-2</span></div></div>
         <div class="ex-right"><span class="chevron">▼</span><div class="check${dn?' on':''}" data-check="${k}"></div></div>
       </div>
-      <div class="ex-tutorial">${tut?buildTutorial(tut):''}</div>
+      <div class="ex-tutorial">${tut?buildTutorial(tut,ex.name,isBodyweight):''}</div>
     </div>`;
   });
 
-  if(mainEx.length>0){
+  if(mainEx.length>0&&!isSat){
     html+=`<div class="ab-sep"><div class="ab-sep-line"></div><span class="ab-sep-text">💪 AB FINISHER — EVERY SESSION</span><div class="ab-sep-line"></div></div>`;
     AB_FINISHER.forEach((ex,i)=>{
       const k=`${wd}-ab-${i}`,dn=completedEx[k],exp=expandedEx[k],tut=EX_DB[ex.name];
       html+=`<div class="ex-card ab-ex${dn?' done':''}${exp?' expanded':''}" data-key="${k}">
         <div class="ex-header" data-expand="${k}">
           <div class="ex-left"><div class="ex-name${dn?' struck':''}">${esc(ex.name)}</div>
-          <div class="ex-meta"><span style="color:var(--orange)">${ex.sets}</span><span style="color:var(--dim)">${ex.weight}</span></div></div>
+          <div class="ex-meta"><span style="color:var(--orange)">${ex.sets}</span><span style="color:var(--dim)">${ex.weight}</span><span style="color:var(--dim2);font-family:var(--mono);font-size:9px">3-1-2</span></div></div>
           <div class="ex-right"><span class="chevron">▼</span><div class="check${dn?' on':''}" data-check="${k}"></div></div>
         </div>
-        <div class="ex-tutorial">${tut?buildTutorial(tut):''}</div>
+        <div class="ex-tutorial">${tut?buildTutorial(tut,ex.name,true):''}</div>
       </div>`;
     });
   }
@@ -864,7 +1025,13 @@ function renderTraining(){
       const k=h.dataset.expand;expandedEx[k]=!expandedEx[k];renderTraining();
     });
   });
-  document.getElementById('trainingTip').style.display=mainEx.length>0?'':'none';
+  const tipEl=document.getElementById('trainingTip');
+  if(mainEx.length>0){
+    tipEl.style.display='';
+    tipEl.innerHTML=isSat?
+      '<strong>Rest 45-60 seconds between sets</strong> on pump day. Higher reps (15-20) with shorter rest floods muscles with metabolic stress — a different growth stimulus from Mon-Fri heavy work (Schoenfeld 2014).':
+      '<strong>Rest 60-90 seconds between sets.</strong> Tempo 3-1-2: 3 sec down, 1 sec pause, 2 sec up. Push final 2 reps close to failure. Ab finisher: circuit all 3 exercises, then rest 60-90s.';
+  }else{tipEl.style.display='none';}
 }
 
 function renderProgress(){
@@ -932,26 +1099,51 @@ function renderPrediction(){
   });
   const avgSteps=stepDays>0?Math.round(totalSteps/stepDays):0;
   const avgCals=daysOn?totalCals/daysOn:TARGETS.cal;
-  // Food deficit: how much under 2,150 maintenance they're eating on logged days
-  // Walking bonus: +150 kcal/day if averaging 7,000+ steps
-  // Cap total deficit at 750 kcal/day to stay realistic
   const stepBonus=avgSteps>=STEP_TARGET?150:0;
   const dailyDeficit=Math.min(750,Math.max(0,2150-avgCals)+stepBonus);
-  const wkLbs=dailyDeficit*7/3500,wkSt=wkLbs/14;
+  const wkLbsCalorie=dailyDeficit*7/3500;
+
+  // Blended prediction: 70% actual trend + 30% calorie estimate when 2+ weigh-ins
+  let wkLbs=Math.min(2,wkLbsCalorie),predBasis='Based on calorie estimate',isGaining=false;
+  if(weights.length>=2){
+    const fw=weights[0].value,lw=weights[weights.length-1].value;
+    const wksElapsed=(new Date(weights[weights.length-1].date)-new Date(weights[0].date))/(7*24*3600*1000);
+    if(wksElapsed>0){
+      const actualWkLbs=(fw-lw)*14/wksElapsed;
+      wkLbs=Math.min(2,actualWkLbs*0.7+wkLbsCalorie*0.3);
+      predBasis='Based on your actual progress';
+      isGaining=actualWkLbs<0;
+    }
+  }
+
+  const wkSt=wkLbs/14;
   const lostSoFar=START_WEIGHT-currentW,totalToLose=START_WEIGHT-TARGET_WEIGHT;
   const pct=Math.min(100,Math.max(0,lostSoFar/totalToLose*100));
-  const weeksToGo=wkSt>0?(currentW-TARGET_WEIGHT)/wkSt:99;
-  const goalDate=new Date();goalDate.setDate(goalDate.getDate()+Math.round(weeksToGo*7));
+  const weeksToGoTarget=wkSt>0?(currentW-TARGET_WEIGHT)/wkSt:99;
+  const goalDate=new Date();goalDate.setDate(goalDate.getDate()+Math.round(weeksToGoTarget*7));
+
+  // Dual goal dates based on lbs from START_WEIGHT
+  const lbsLostSoFar=lostSoFar*14;
+  const lbsToToned=Math.max(0,10-lbsLostSoFar);
+  const lbsToSixPack=Math.max(0,18-lbsLostSoFar);
+  const weeksToned=wkLbs>0?lbsToToned/wkLbs:99;
+  const weeksSixPack=wkLbs>0?lbsToSixPack/wkLbs:99;
+  const tonedDate=new Date();tonedDate.setDate(tonedDate.getDate()+Math.round(weeksToned*7));
+  const sixPackDate=new Date();sixPackDate.setDate(sixPackDate.getDate()+Math.round(weeksSixPack*7));
+
+  const gainWarn=isGaining?`<div style="margin-top:10px;padding:8px 12px;background:rgba(255,77,77,0.1);border:1px solid rgba(255,77,77,0.3);border-radius:6px;font-size:11px;color:var(--red)">⚠️ Current trend shows weight gain. Tighten calories and log every meal accurately.</div>`:'';
+
   el.innerHTML=`<div class="pred-title">Predicted Progress</div>
     <div class="pred-target-line"><div><span class="pred-big">${currentW.toFixed(1)}</span> <span class="pred-sub">st now</span></div><div style="text-align:right"><span style="font-size:14px;font-weight:700;color:var(--accent)">${TARGET_WEIGHT}</span> <span class="pred-sub">target</span></div></div>
     <div class="pred-bar-bg"><div class="pred-bar-fill" style="width:${pct}%"></div></div>
     <div class="pred-weeks"><span>Start: ${START_WEIGHT} st</span><span>${pct.toFixed(0)}% there</span><span>Goal: ${TARGET_WEIGHT} st</span></div>
     <div class="pred-metrics">
-      <div class="pred-metric"><div class="pm-label">Weekly Loss</div><div class="pm-val" style="color:${wkLbs>=0.8?'var(--green)':wkLbs>=0.4?'var(--orange)':'var(--red)'}">${wkLbs>0?wkLbs.toFixed(1):'0'} <span style="font-size:10px;color:var(--dim)">lbs/wk</span></div></div>
-      <div class="pred-metric"><div class="pm-label">Goal Date</div><div class="pm-val" style="color:var(--blue)">${wkSt>0?goalDate.toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—'}</div><div class="pm-note">${weeksToGo<99?Math.ceil(weeksToGo)+' wks away':'Log food to predict'}</div></div>
+      <div class="pred-metric"><div class="pm-label">Weekly Loss</div><div class="pm-val" style="color:${wkLbs>=0.8?'var(--green)':wkLbs>=0.4?'var(--orange)':'var(--red)'}">${wkLbs>0?wkLbs.toFixed(1):'0'} <span style="font-size:10px;color:var(--dim)">lbs/wk</span></div><div class="pm-note">${predBasis}</div></div>
+      <div class="pred-metric"><div class="pm-label">Toned &amp; defined</div><div class="pm-val" style="color:var(--blue)">${wkLbs>0&&lbsToToned>0?tonedDate.toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'✓ Done!'}</div><div class="pm-note">${lbsToToned>0?Math.ceil(weeksToned)+' wks · 15% body fat':'Upper abs visible'}</div></div>
+      <div class="pred-metric"><div class="pm-label">Six pack visible</div><div class="pm-val" style="color:var(--blue)">${wkLbs>0&&lbsToSixPack>0?sixPackDate.toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'✓ Done!'}</div><div class="pm-note">${lbsToSixPack>0?Math.ceil(weeksSixPack)+' wks · 12% body fat':'Abs fully visible'}</div></div>
       <div class="pred-metric"><div class="pm-label">Avg Steps</div><div class="pm-val" style="color:${avgSteps>=STEP_TARGET?'var(--green)':avgSteps>=5000?'var(--orange)':'var(--red)'}">${avgSteps>0?avgSteps.toLocaleString():'—'}</div><div class="pm-note">${avgSteps>=STEP_TARGET?'On target ✓':'Target: 7,000'}</div></div>
       <div class="pred-metric"><div class="pm-label">Days Completed</div><div class="pm-val">${completedDays} <span style="font-size:10px;color:var(--dim)">/ ${allDays.length}</span></div><div class="pm-note">${workoutsDone} workouts done</div></div>
-    </div>`;
+    </div>${gainWarn}`;
 }
 
 // ── STREAK ────────────────────────────────────────────────
@@ -1110,9 +1302,14 @@ const openMealForm=()=>{
   ['method-tab','method-panel'].forEach(c=>document.querySelectorAll('.'+c).forEach(x=>x.classList.remove('active')));
   document.querySelector('[data-method="ai"]').classList.add('active');document.getElementById('panel-ai').classList.add('active');
   document.getElementById('aiResult').style.display='none';document.getElementById('aiStatus').textContent='';
+  document.getElementById('apiResults').style.display='none';document.getElementById('apiSelected').style.display='none';
+  document.getElementById('aiServingRow').style.display='none';
   document.getElementById('fAiFood').value='';document.getElementById('barcodeResult').style.display='none';
   document.getElementById('barcodeInput').value='';document.getElementById('scannerStatus').textContent='';
-  aiData=null;bcPer100=null;stopScanner();setTimeout(()=>document.getElementById('fAiFood').focus(),100);
+  aiData=null;bcPer100=null;apiPer100=null;aiOfflineSingle=null;
+  apiQty=1;aiQty=1;bcQty=1;
+  ['apiQtyVal','aiQtyVal','bcQtyVal'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='1';});
+  stopScanner();setTimeout(()=>document.getElementById('fAiFood').focus(),100);
 };
 const closeMealForm=()=>{mealOv.style.display='none';stopScanner();};
 document.getElementById('btnAddMeal').addEventListener('click',openMealForm);
@@ -1122,15 +1319,69 @@ mealOv.addEventListener('click',e=>{if(e.target===mealOv)closeMealForm();});
 
 document.getElementById('fAiSearch').addEventListener('click',()=>{const q=document.getElementById('fAiFood').value.trim();if(q)lookupFood(q);});
 document.getElementById('fAiFood').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const q=e.target.value.trim();if(q)lookupFood(q);}});
-document.getElementById('aiResAdd').addEventListener('click',()=>{if(!aiData)return;meals.push({id:Date.now(),name:aiData.name,cal:aiData.calories,p:aiData.protein,c:aiData.carbs,f:aiData.fat});save(`meals:${viewDate}`,meals);rerender();closeMealForm();});
-document.getElementById('aiResEdit').addEventListener('click',()=>{if(!aiData)return;document.getElementById('fMealName').value=aiData.name;document.getElementById('fMealCal').value=aiData.calories;document.getElementById('fMealP').value=aiData.protein;document.getElementById('fMealC').value=aiData.carbs;document.getElementById('fMealF').value=aiData.fat;['method-tab','method-panel'].forEach(c=>document.querySelectorAll('.'+c).forEach(x=>x.classList.remove('active')));document.querySelector('[data-method="manual"]').classList.add('active');document.getElementById('panel-manual').classList.add('active');});
+document.getElementById('apiServing').addEventListener('input',updateApiDisplay);
+// API qty buttons
+document.getElementById('apiQtyMinus').addEventListener('click',()=>{if(apiQty>1){apiQty--;document.getElementById('apiQtyVal').textContent=apiQty;updateApiDisplay();}});
+document.getElementById('apiQtyPlus').addEventListener('click',()=>{apiQty++;document.getElementById('apiQtyVal').textContent=apiQty;updateApiDisplay();});
+document.getElementById('apiResAdd').addEventListener('click',()=>{
+  if(!apiPer100)return;const g=+document.getElementById('apiServing').value||100,m=g/100*apiQty;
+  const nm=(apiQty>1?apiQty+'× ':'')+apiPer100.name;
+  const cal=Math.round(apiPer100.cal*m),p=Math.round(apiPer100.p*m),c=Math.round(apiPer100.c*m),f=Math.round(apiPer100.f*m);
+  meals.push({id:Date.now(),name:nm,cal,p,c,f});trackFood(nm,cal,p,c,f);
+  save(`meals:${viewDate}`,meals);rerender();closeMealForm();
+});
+document.getElementById('apiResEdit').addEventListener('click',()=>{
+  if(!apiPer100)return;const g=+document.getElementById('apiServing').value||100,m=g/100*apiQty;
+  document.getElementById('fMealName').value=(apiQty>1?apiQty+'× ':'')+apiPer100.name;
+  document.getElementById('fMealCal').value=Math.round(apiPer100.cal*m);document.getElementById('fMealP').value=Math.round(apiPer100.p*m);
+  document.getElementById('fMealC').value=Math.round(apiPer100.c*m);document.getElementById('fMealF').value=Math.round(apiPer100.f*m);
+  ['method-tab','method-panel'].forEach(c=>document.querySelectorAll('.'+c).forEach(x=>x.classList.remove('active')));
+  document.querySelector('[data-method="manual"]').classList.add('active');document.getElementById('panel-manual').classList.add('active');
+});
+document.getElementById('aiServing').addEventListener('input',updateAiOfflineDisplay);
+// Offline qty buttons
+document.getElementById('aiQtyMinus').addEventListener('click',()=>{if(aiQty>1){aiQty--;document.getElementById('aiQtyVal').textContent=aiQty;updateAiOfflineDisplay();}});
+document.getElementById('aiQtyPlus').addEventListener('click',()=>{aiQty++;document.getElementById('aiQtyVal').textContent=aiQty;updateAiOfflineDisplay();});
+document.getElementById('aiResAdd').addEventListener('click',()=>{
+  if(!aiData)return;
+  meals.push({id:Date.now(),name:aiData.name,cal:aiData.calories,p:aiData.protein,c:aiData.carbs,f:aiData.fat});
+  trackFood(aiData.name,aiData.calories,aiData.protein,aiData.carbs,aiData.fat);
+  save(`meals:${viewDate}`,meals);rerender();closeMealForm();
+});
+document.getElementById('aiResEdit').addEventListener('click',()=>{
+  if(!aiData)return;document.getElementById('fMealName').value=aiData.name;document.getElementById('fMealCal').value=aiData.calories;
+  document.getElementById('fMealP').value=aiData.protein;document.getElementById('fMealC').value=aiData.carbs;document.getElementById('fMealF').value=aiData.fat;
+  ['method-tab','method-panel'].forEach(c=>document.querySelectorAll('.'+c).forEach(x=>x.classList.remove('active')));
+  document.querySelector('[data-method="manual"]').classList.add('active');document.getElementById('panel-manual').classList.add('active');
+});
 
 document.getElementById('barcodeLookup').addEventListener('click',()=>{const c=document.getElementById('barcodeInput').value.trim();if(c)lookupBarcode(c);});
 document.getElementById('barcodeInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const c=e.target.value.trim();if(c)lookupBarcode(c);}});
 document.getElementById('bcServing').addEventListener('input',updateBarcodeDisplay);
-document.getElementById('bcResAdd').addEventListener('click',()=>{if(!bcPer100)return;const g=+document.getElementById('bcServing').value||100,m=g/100;meals.push({id:Date.now(),name:bcPer100.name,cal:Math.round(bcPer100.cal*m),p:Math.round(bcPer100.p*m),c:Math.round(bcPer100.c*m),f:Math.round(bcPer100.f*m)});save(`meals:${viewDate}`,meals);rerender();closeMealForm();});
-document.getElementById('bcResEdit').addEventListener('click',()=>{if(!bcPer100)return;const g=+document.getElementById('bcServing').value||100,m=g/100;document.getElementById('fMealName').value=bcPer100.name;document.getElementById('fMealCal').value=Math.round(bcPer100.cal*m);document.getElementById('fMealP').value=Math.round(bcPer100.p*m);document.getElementById('fMealC').value=Math.round(bcPer100.c*m);document.getElementById('fMealF').value=Math.round(bcPer100.f*m);['method-tab','method-panel'].forEach(c=>document.querySelectorAll('.'+c).forEach(x=>x.classList.remove('active')));document.querySelector('[data-method="manual"]').classList.add('active');document.getElementById('panel-manual').classList.add('active');stopScanner();});
-document.getElementById('fMealSave2').addEventListener('click',()=>{const nm=document.getElementById('fMealName').value.trim();if(!nm)return;meals.push({id:Date.now(),name:nm,cal:+document.getElementById('fMealCal').value||0,p:+document.getElementById('fMealP').value||0,c:+document.getElementById('fMealC').value||0,f:+document.getElementById('fMealF').value||0});save(`meals:${viewDate}`,meals);['fMealName','fMealCal','fMealP','fMealC','fMealF'].forEach(id=>document.getElementById(id).value='');closeMealForm();rerender();});
+// Barcode qty buttons
+document.getElementById('bcQtyMinus').addEventListener('click',()=>{if(bcQty>1){bcQty--;document.getElementById('bcQtyVal').textContent=bcQty;updateBarcodeDisplay();}});
+document.getElementById('bcQtyPlus').addEventListener('click',()=>{bcQty++;document.getElementById('bcQtyVal').textContent=bcQty;updateBarcodeDisplay();});
+document.getElementById('bcResAdd').addEventListener('click',()=>{
+  if(!bcPer100)return;const g=+document.getElementById('bcServing').value||100,m=g/100*bcQty;
+  const nm=(bcQty>1?bcQty+'× ':'')+bcPer100.name;
+  const cal=Math.round(bcPer100.cal*m),p=Math.round(bcPer100.p*m),c=Math.round(bcPer100.c*m),f=Math.round(bcPer100.f*m);
+  meals.push({id:Date.now(),name:nm,cal,p,c,f});trackFood(nm,cal,p,c,f);
+  save(`meals:${viewDate}`,meals);rerender();closeMealForm();
+});
+document.getElementById('bcResEdit').addEventListener('click',()=>{
+  if(!bcPer100)return;const g=+document.getElementById('bcServing').value||100,m=g/100*bcQty;
+  document.getElementById('fMealName').value=(bcQty>1?bcQty+'× ':'')+bcPer100.name;
+  document.getElementById('fMealCal').value=Math.round(bcPer100.cal*m);document.getElementById('fMealP').value=Math.round(bcPer100.p*m);
+  document.getElementById('fMealC').value=Math.round(bcPer100.c*m);document.getElementById('fMealF').value=Math.round(bcPer100.f*m);
+  ['method-tab','method-panel'].forEach(c=>document.querySelectorAll('.'+c).forEach(x=>x.classList.remove('active')));
+  document.querySelector('[data-method="manual"]').classList.add('active');document.getElementById('panel-manual').classList.add('active');stopScanner();
+});
+document.getElementById('fMealSave2').addEventListener('click',()=>{
+  const nm=document.getElementById('fMealName').value.trim();if(!nm)return;
+  const cal=+document.getElementById('fMealCal').value||0,p=+document.getElementById('fMealP').value||0,c=+document.getElementById('fMealC').value||0,f=+document.getElementById('fMealF').value||0;
+  meals.push({id:Date.now(),name:nm,cal,p,c,f});trackFood(nm,cal,p,c,f);
+  save(`meals:${viewDate}`,meals);['fMealName','fMealCal','fMealP','fMealC','fMealF'].forEach(id=>document.getElementById(id).value='');closeMealForm();rerender();
+});
 
 // Steps
 document.querySelectorAll('[data-steps]').forEach(b=>{b.addEventListener('click',()=>{
